@@ -249,7 +249,9 @@ void CGameWindow::mainLoop(void *appPointer)
 
 	cout << "CGameWindow::mainLoop()" << endl;
 
-	m_ReferenceRenderer->setViewport(m_Width, m_Height);
+	int framebufferWidth, framebufferHeight;
+	glfwGetFramebufferSize(m_Window, &framebufferWidth, &framebufferHeight);
+	m_ReferenceRenderer->setViewport(framebufferWidth, framebufferHeight);
 	m_ReferenceRenderer->enableDepthTest();
 
 	if (!QueryPerformanceFrequency(&li))
