@@ -251,6 +251,13 @@ void CGameWindow::mainLoop(void *appPointer)
 
 	int framebufferWidth, framebufferHeight;
 	glfwGetFramebufferSize(m_Window, &framebufferWidth, &framebufferHeight);
+
+	// Update m_Width and m_Height to be the framebuffer width and height instead of the window width and height
+	m_Width = framebufferWidth;
+	m_Height = framebufferHeight;
+
+	m_ReferenceRenderer->setFramebufferWidth(framebufferWidth);
+	m_ReferenceRenderer->setFramebufferHeight(framebufferHeight);
 	m_ReferenceRenderer->setViewport(framebufferWidth, framebufferHeight);
 	m_ReferenceRenderer->enableDepthTest();
 

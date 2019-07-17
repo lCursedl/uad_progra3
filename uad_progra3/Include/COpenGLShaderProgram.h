@@ -7,16 +7,18 @@
 #include <string>
 using namespace std;
 
-#define UNIFORM_MODEL_MATRIX		"uModelMatrix"
-#define UNIFORM_VIEW_MATRIX			"uViewMatrix"
-#define UNIFORM_PROJECTION_MATRIX	"uProjMatrix"
-#define UNIFORM_COLOR				"uColor"
-#define UNIFORM_TEXTURE_SAMPLER		"textureSampler"
+#define UNIFORM_MODEL_MATRIX			"uModelMatrix"
+#define UNIFORM_VIEW_MATRIX				"uViewMatrix"
+#define UNIFORM_PROJECTION_MATRIX		"uProjMatrix"
+#define UNIFORM_COLOR					"uColor"
+#define UNIFORM_TEXTURE_SAMPLER			"textureSampler"
 
-#define ATTRIBUTE_POSITION			"attPosition"
-#define ATTRIBUTE_NORMAL			"attNormal"
-#define ATTRIBUTE_UV				"attUV"
-#define ATTRIBUTE_COLOR				"attColor"
+#define ATTRIBUTE_POSITION				"attPosition"
+#define ATTRIBUTE_NORMAL				"attNormal"
+#define ATTRIBUTE_UV					"attUV"
+#define ATTRIBUTE_COLOR			 		"attColor"
+#define ATTRIBUTE_INSTANCING_MVP_MAT4   "attInstMVPMat"
+#define ATTRIBUTE_INSTANCING_WORLD_MAT4 "attInstWorldMat"
 
 class COpenGLShaderProgram
 {

@@ -1,5 +1,8 @@
 #pragma once
 
+#ifndef _OPENGL_RENDERER_H
+#define _OPENGL_RENDERER_H
+
 // include glad *before* glfw
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -8,27 +11,16 @@
 #include "COpenGLShaderProgram.h"
 
 #include <map>
-#include <vector>
 using namespace std;
 
 #define BUFFER_OFFSET(a) ((void*)(a))
 #define MIN_CAMERA_DISTANCE 5.0f
-#define MAX_CAMERA_DISTANCE 1000.0f
+#define MAX_CAMERA_DISTANCE 100.0f
 #define MOVE_CAMERA_DELTA 1.5f
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-*
-* ONLY MODIFY THIS FILE IF YOU KNOW WHAT YOU'RE DOING...
-* AND EVEN THEN... BE CAREFUL...
-*
-* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-// =========================================================================================================
 // Class for a simple OpenGL renderer targeted for OpenGL 4.3
 // UAD lab PCs support it
 // *NOTE: This code has been tested to work fine on NVidia cards. Radeon cards seem to behave differently...
-// =========================================================================================================
-
 class COpenGLRenderer
 {
 public:
@@ -44,24 +36,42 @@ public:
 	};
 
 private:
-	int m_frameBufferWidth;
-	int m_frameBufferHeight;
+	int m_windowWidth;
+	int m_windowHeight;
 	bool m_OpenGLError;
 
-	std::map<int, COpenGLShaderProgram*> m_shaderProgramWrappers;
+	std::map<int, COpenGLShaderProgram*> m_shaderPrograms;
 	std::vector<std::string> m_expectedUniformsInShader;
 	std::vector<std::string> m_expectedAttributesInShader;
+
+	GLint sh_ModelUniformLocation;
+	GLint sh_ViewUniformLocation;
+	GLint sh_ProjUniformLocation;
+	GLint sh_colorUniformLocation;
 
 	float m_cameraDistance; // Distance from camera view point to target point, expressed in OpenGL units
 
 	// TEST OBJECT VARS
 	// When no 3D object is loaded, we display a test object (spinning cube)
 	// ===========================
-	GLuint m_testCubeShaderProgramID;
-	GLuint m_testCubeVAOID;
+	GLint sh_TestPositionAttribLocation;
+	GLint sh_TestColorAttribLocation;
 
-	GLuint m_mCCubeShaderProgramID;
-	GLuint m_mCCubeVAOID;
+	GLuint mTestshaderProgramID;
+	GLuint mVertexPositionArrayObjectID;
+	GLuint mVertexPositionBuffer;
+	GLuint mVertexColorBuffer;
+	GLuint mIndexBuffer;
+
+	GLuint mMCCubeShaderProgramID;
+	GLuint mMCCubeVAOID;
+	GLint  sh_MCCubeUVAttribLocation;
+	GLuint mMCCubeVertexUVBuffer;
+	GLuint mMCCubeVertexPositionBuffer;
+	GLuint mMCCubeVertexColorBuffer;
+	GLuint mMCCubeIndexBuffer;
+	GLint  mMCCubeTextureUniformLocation;
+	GLuint mMCCubeTextureID;
 	// ===========================
 
 	//
@@ -107,10 +117,7 @@ private:
 	GLenum primitiveModeToGLEnum(EPRIMITIVE_MODE mode) const;
 
 	//
-	COpenGLShaderProgram* getShaderProgramWrapper(unsigned int id);
-
-	//
-	bool deleteShaderProgram(unsigned int *shaderProgramId);
+	bool activateShaderProgram(COpenGLShaderProgram *shaderProgram);
 
 public:
 	// Constructor and Destructor
@@ -145,7 +152,7 @@ public:
 	// Free graphics memory for a given 3D object 
 	// =================================================================
 	bool freeGraphicsMemoryForObject(
-		//unsigned int *shaderProgramId, 
+		unsigned int *shaderProgramId, 
 		unsigned int *vertexArrayObjectID);
 
 	// =================================================================
@@ -157,7 +164,9 @@ public:
 		float topX, float topY, float menuItemHeight,
 		float *uvCoords,
 		unsigned int *shaderProgramId,
-		unsigned int *vertexArrayObjectID
+		unsigned int *vertexArrayObjectID,
+		int *colorUniformLocation,
+		int *textureUniformLocation
 	);
 
 	//
@@ -165,6 +174,9 @@ public:
 		unsigned int *shaderProgramId,
 		const char *vertexShader,
 		const char *fragmentShader);
+
+	//
+	bool deleteShaderProgram(unsigned int *shaderProgramId);
 
 	//
 	bool createTextureObject(
@@ -185,95 +197,32 @@ public:
 	bool renderObject(
 		unsigned int *shaderProgramId,
 		unsigned int *vertexArrayObjectId,
-		unsigned int *textureObjectId,
 		int numFaces,
 		GLfloat *objectColor,
 		MathHelper::Matrix4 *objectTransformation = NULL,
 		EPRIMITIVE_MODE mode = TRIANGLES,
 		bool drawIndexedPrimitives = false);
 
-	// 
-	bool renderObject(
-		unsigned int *shaderProgramId,
-		unsigned int *vertexArrayObjectId,
-		unsigned int *textureObjectId,
-		int numFaces,
-		GLfloat *objectColor,
-		MathHelper::Matrix4 *modelMatrix,
-		MathHelper::Matrix4 *viewMatrix,
-		MathHelper::Matrix4 *projectionMatrix,
-		EPRIMITIVE_MODE mode = TRIANGLES,
-		bool drawIndexedPrimitives = false);
-
-	/*
-	 * With vertex attributes, each run of the vertex shader will cause GLSL to retrieve the next set of vertex attributes that belong to the current vertex. 
-	 * When defining a vertex attribute as an instanced array however, the vertex shader only updates the content of the vertex attribute per instance instead of per vertex. 
-	 * This allows us to use the standard vertex attributes for data per vertex and use the instanced array for storing data that is unique per instance.
-	 */
-	//
-	bool setInstancedOffsetPositions(unsigned int *shaderProgramId);
-
-	bool setInstancedModelViewMatrices(unsigned int *shaderProgramId);
-
-	/*
-	https://learnopengl.com/Advanced-OpenGL/Instancing
-	https://learnopengl.com/code_viewer_gh.php?code=src/4.advanced_opengl/10.1.instancing_quads/instancing_quads.cpp
-	http://www.opengl-tutorial.org/intermediate-tutorials/billboards-particles/particles-instancing/
-	https://learnopengl.com/code_viewer_gh.php?code=includes/learnopengl/shader.h
-	no longer use gl_InstanceID and can directly use the offset attribute without first indexing into a large uniform array.
-
-Because an instanced array is a vertex attribute, just like the position and color variables, we also need to store its content in a vertex buffer object and configure its attribute pointer. We're first going to store the translations array (from the previous section) in a new buffer object:
-
-
-unsigned int instanceVBO;
-glGenBuffers(1, &instanceVBO);
-glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2) * 100, &translations[0], GL_STATIC_DRAW);
-glBindBuffer(GL_ARRAY_BUFFER, 0); 
-Then we also need to set its vertex attribute pointer and enable the vertex attribute:
-
-
-glEnableVertexAttribArray(2);
-glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-glBindBuffer(GL_ARRAY_BUFFER, 0);	
-glVertexAttribDivisor(2, 1);  
-What makes this code interesting is the last line where we call glVertexAttribDivisor. This function tells OpenGL when to update the content of a vertex attribute to the next element. Its first parameter is the vertex attribute in question and the second parameter the attribute divisor. By default the attribute divisor is 0 which tells OpenGL to update the content of the vertex attribute each iteration of the vertex shader. By setting this attribute to 1 we're telling OpenGL that we want to update the content of the vertex attribute when we start to render a new instance. By setting it to 2 we'd update the content every 2 instances and so on. By setting the attribute divisor to 1 we're effectively telling OpenGL that the vertex attribute at attribute location 2 is an instanced array.
-
-If we now were to render the quads again using glDrawArraysInstanced we'd get the following outpu
-	*/
-
 	//
 	bool renderMenuItem(
 		unsigned int *shaderProgramId, 
 		unsigned int *textureObjectId,
 		unsigned int *vertexArrayObjectId,
+		int *colorUniformLocation, 
+		int *textureUniformLocation,
 		GLfloat *menuItemColor);
 
 	//
-	void setFramebufferWidth(int width) { m_frameBufferWidth = width; }
-	void setFramebufferHeight(int height) { m_frameBufferHeight = height; }
-	int getFramebufferWidth() const { return m_frameBufferWidth; }
-	int getFramebufferHeight() const { return m_frameBufferHeight; }
+	void setWindowWidth(int width) { m_windowWidth = width; }
+	void setWindowHeight(int height) { m_windowHeight = height; }
 
 	//
-	void initializeColorCube();
+	void renderTestObject(MathHelper::Matrix4 *objectTransformation = NULL);
+	void initializeTestObjects();
+
 	//
-	void renderColorCube(MathHelper::Matrix4 *objectTransformation = NULL);
-	void renderColorCube(
-		MathHelper::Matrix4 *modelMatrix, 
-		MathHelper::Matrix4 *viewMatrix, 
-		MathHelper::Matrix4 *projectionMatrix );
-	
-	//
-	void initializeTexturedCube();
-	//
-	void renderTexturedCube(unsigned int cubeTextureID, MathHelper::Matrix4 *objectTransformation = NULL);
-	void renderTexturedCube(
-		unsigned int cubeTextureID, 
-		MathHelper::Matrix4 *modelMatrix,
-		MathHelper::Matrix4 *viewMatrix,
-		MathHelper::Matrix4 *projectionMatrix);
+	void renderMCCube(MathHelper::Matrix4 *objectTransformation = NULL);
+	void initializeMCCube(unsigned int textureObjectId);
 
 	//
 	bool checkOpenGLError(char *operationAttempted);
@@ -305,28 +254,8 @@ If we now were to render the quads again using glDrawArraysInstanced we'd get th
 
 	//
 	void drawString(unsigned int *textureObjectId, std::string &text, float x, float y, CVector3 &color);
-
-	//
-	bool isDebugContextEnabled() const;
-
-	//
-	void activateOpenGLDebugging();
-
-	// 
-	void setWireframePolygonMode() { glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);	}
-
-	// 
-	void setFillPolygonMode() { glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); }
-
-	//
-	static void APIENTRY debugOutputCallback(
-		GLenum source, 
-		GLenum type, 
-		GLuint id, 
-		GLenum severity,
-		GLsizei length, 
-		const GLchar *message, 
-		const GLvoid *userParam);
 };
+
+#endif // !_OPENGL_RENDERER_H
 
 // https://www.khronos.org/opengl/wiki/Common_Mistakes

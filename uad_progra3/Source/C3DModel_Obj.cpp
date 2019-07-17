@@ -360,7 +360,7 @@ bool C3DModel_Obj::parseObjLine(std::string line, bool countOnly, int lineNumber
 						// token[0] = 1/3/4
 						// token[1] = 3/5/2
 						// token[2] = 2/3/1
-						for (int i = 0; i < 3 && i < tokens.size(); i++)
+						for (int i = 0; i < 3 && i < (int)tokens.size(); i++)
 						{
 							currentToken = -1;
 

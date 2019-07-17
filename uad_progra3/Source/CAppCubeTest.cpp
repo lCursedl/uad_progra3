@@ -56,8 +56,8 @@ void CAppCubeTest::run()
 			// Set initial clear screen color
 			getOpenGLRenderer()->setClearScreenColor(0.15f, 0.75f, 0.75f);
 			// Initialize window width/height in the renderer
-			getOpenGLRenderer()->setWindowWidth(getGameWindow()->getWidth());
-			getOpenGLRenderer()->setWindowHeight(getGameWindow()->getHeight());
+			//getOpenGLRenderer()->setWindowWidth(getGameWindow()->getWidth());
+			//getOpenGLRenderer()->setWindowHeight(getGameWindow()->getHeight());
 			// Initialize a test cube
 			getOpenGLRenderer()->initializeColorCube();
 
@@ -143,16 +143,72 @@ void CAppCubeTest::render()
 	// convert total degrees rotated to radians;
 	double totalDegreesRotatedRadians = m_objectRotation * 3.1459 / 180.0;
 
+	float cosine = cosf((float)totalDegreesRotatedRadians);
+	float sine = sinf((float)totalDegreesRotatedRadians);
+
+	MathHelper::Matrix4 sm = MathHelper::ScaleMatrix(
+		0.5f, 0.5f, 0.5f
+	);
+	/*sm.m[0][0] = 0.25f;
+	sm.m[1][1] = 0.25f;
+	sm.m[2][2] = 0.25f;*/
+
+	MathHelper::Matrix4 tm = MathHelper::TranslationMatrix(
+		m_objectPosition.X, m_objectPosition.Y, m_objectPosition.Z
+	);
+
+	/*MathHelper::Matrix4 tm = MathHelper::IdentityMatrix();
+	tm.m[0][3] = m_objectPosition.X;
+	tm.m[1][3] = m_objectPosition.Y;
+	tm.m[2][3] = m_objectPosition.Z;*/
+	//tm = MathHelper::Transpose(tm);
+
+	MathHelper::Matrix4 rx = MathHelper::RotAroundX((float)totalDegreesRotatedRadians);
+	MathHelper::Matrix4 ry = MathHelper::RotAroundY((float)totalDegreesRotatedRadians);
+	/*rx.m[1][1] = cosine;
+	rx.m[1][2] = -sine;
+	rx.m[2][1] = sine;
+	rx.m[2][2] = cosine;*/
+	//rx = MathHelper::Transpose(rx);
+	//ry = MathHelper::Transpose(ry);
+
+	MathHelper::Matrix4 finalRotation = MathHelper::Multiply(rx, ry);
+	MathHelper::Matrix4 rotationAndScale = MathHelper::Multiply(finalRotation, sm);
+	MathHelper::Matrix4 modelMatrix = MathHelper::Multiply(rotationAndScale, tm);
+	//MathHelper::Matrix4 m1 = MathHelper::Multiply(tm, ry);
+
 	// Get a matrix that has both the object rotation and translation
-	MathHelper::Matrix4 modelMatrix = MathHelper::ModelMatrix((float)totalDegreesRotatedRadians, m_objectPosition);
+	// MathHelper::Matrix4 modelMatrix = MathHelper::ModelMatrix((float)totalDegreesRotatedRadians, m_objectPosition);
 
 	CVector3 pos2 = m_objectPosition;
 	pos2 += CVector3(3.0f, 0.0f, 0.0f);
-	MathHelper::Matrix4 modelMatrix2 = MathHelper::ModelMatrix((float)totalDegreesRotatedRadians, pos2);
+	MathHelper::Matrix4 modelMatrix2 = MathHelper::SimpleModelMatrixRotationTranslation((float)totalDegreesRotatedRadians, pos2);
+
+	// Look at 0,0,0 from 0,8,8
+	CVector3 camEyePos = CVector3::ZeroVector();
+	CVector3 camLookAt = CVector3::ZeroVector();
+	CVector3 camUpVec  = CVector3::ZeroVector();
+	camEyePos.Y = 8.0f;
+	camEyePos.Z = 8.0f;
+	camUpVec.Y = 1.0f;
+
+	// Construct a view matrix
+	MathHelper::Matrix4 viewM = MathHelper::ViewMatrix(
+		camEyePos, camLookAt, camUpVec
+	);
+
+	float aspectRatio = (float)getOpenGLRenderer()->getFramebufferWidth() / (float)getOpenGLRenderer()->getFramebufferHeight();
+
+	// Construct a projection matrix
+	MathHelper::Matrix4 projM = MathHelper::PerspectiveProjectionMatrix(
+		75.0f, aspectRatio, 0.1f, 100.0f
+	);
 
 	// No model loaded, show test cubes
-	getOpenGLRenderer()->renderColorCube(&modelMatrix);
-	getOpenGLRenderer()->renderTexturedCube(m_texturedCubeTextureID, &modelMatrix2);
+	//getOpenGLRenderer()->renderColorCube(&modelMatrix);
+	getOpenGLRenderer()->renderColorCube(&modelMatrix, &viewM, &projM);
+	//getOpenGLRenderer()->renderTexturedCube(m_texturedCubeTextureID, &modelMatrix2);
+	getOpenGLRenderer()->renderTexturedCube(m_texturedCubeTextureID, &modelMatrix2, &viewM, &projM);
 }
 
 /* */
