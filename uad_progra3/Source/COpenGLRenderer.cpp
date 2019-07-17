@@ -24,7 +24,13 @@ using namespace std;
 */
 COpenGLRenderer::COpenGLRenderer():
 	m_OpenGLError{ false },
-	m_cameraDistance{ MIN_CAMERA_DISTANCE }
+	m_cameraDistance{ MIN_CAMERA_DISTANCE },
+	m_frameBufferWidth{ 0 },
+	m_frameBufferHeight{ 0 },
+	m_testCubeVAOID{ 0 },
+	m_mCCubeVAOID{ 0 },
+	m_testCubeShaderProgramID{ 0 },
+	m_mCCubeShaderProgramID{ 0 }
 {
 	m_expectedUniformsInShader.push_back(UNIFORM_MODEL_MATRIX);
 	m_expectedUniformsInShader.push_back(UNIFORM_VIEW_MATRIX);
@@ -36,6 +42,8 @@ COpenGLRenderer::COpenGLRenderer():
 	m_expectedAttributesInShader.push_back(ATTRIBUTE_NORMAL);
 	m_expectedAttributesInShader.push_back(ATTRIBUTE_UV);
 	m_expectedAttributesInShader.push_back(ATTRIBUTE_COLOR);
+	m_expectedAttributesInShader.push_back(ATTRIBUTE_INSTANCING_MVP_MAT4);
+	m_expectedAttributesInShader.push_back(ATTRIBUTE_INSTANCING_WORLD_MAT4);
 }
 
 /*
@@ -738,18 +746,19 @@ bool COpenGLRenderer::renderWireframeObject(
 /*
 */
 bool COpenGLRenderer::renderObject(
-	unsigned int *shaderProgramId, 
-	unsigned int *vertexArrayObjectId, 
+	unsigned int *shaderProgramId,
+	unsigned int *vertexArrayObjectId,
 	unsigned int *textureObjectId,
-	int numFaces, 
+	int numFaces,
 	GLfloat *objectColor,
 	MathHelper::Matrix4 *objectTransformation,
 	EPRIMITIVE_MODE mode,
 	bool drawIndexedPrimitives)
 {
-	if (m_windowWidth > 0
-		&& m_windowHeight > 0
-		&& vertexArrayObjectId != NULL 
+	/*
+	if (m_frameBufferWidth > 0
+		&& m_frameBufferHeight > 0
+		&& vertexArrayObjectId != NULL
 		&& *vertexArrayObjectId > 0
 		&& numFaces > 0
 		&& objectColor != NULL
@@ -781,7 +790,7 @@ bool COpenGLRenderer::renderObject(
 		{
 			if (objectTransformation == NULL)
 			{
-				MathHelper::Matrix4 modelMatrix = MathHelper::SimpleModelMatrix(0.0f);
+				MathHelper::Matrix4 modelMatrix = MathHelper::SimpleModelMatrixRotationY(0.0f);
 				glUniformMatrix4fv(shaderProgramWrapper->getModelMatrixUniformLocation(), 1, GL_FALSE, &(modelMatrix.m[0][0]));
 			}
 			else
@@ -798,7 +807,7 @@ bool COpenGLRenderer::renderObject(
 
 		if (shaderProgramWrapper->getProjectionMatrixUniformLocation() >= 0)
 		{
-			MathHelper::Matrix4 projectionMatrix = MathHelper::SimpleProjectionMatrix(float(m_windowWidth) / float(m_windowHeight));
+			MathHelper::Matrix4 projectionMatrix = MathHelper::SimpleProjectionMatrix(float(m_frameBufferWidth) / float(m_frameBufferHeight));
 			glUniformMatrix4fv(shaderProgramWrapper->getProjectionMatrixUniformLocation(), 1, GL_FALSE, &(projectionMatrix.m[0][0]));
 		}
 
@@ -850,7 +859,158 @@ bool COpenGLRenderer::renderObject(
 
 		// Unbind shader program
 		glUseProgram(0);
-		
+
+		if (!m_OpenGLError)
+			return true;
+	}
+
+	return false; */
+
+	return renderObject(
+		shaderProgramId,
+		vertexArrayObjectId,
+		textureObjectId,
+		numFaces,
+		objectColor,
+		objectTransformation,
+		nullptr,
+		nullptr,
+		mode,
+		drawIndexedPrimitives);
+}
+
+/*
+*/
+bool COpenGLRenderer::renderObject(
+	unsigned int *shaderProgramId,
+	unsigned int *vertexArrayObjectId,
+	unsigned int *textureObjectId,
+	int numFaces,
+	GLfloat *objectColor,
+	MathHelper::Matrix4 *modelMatrix,
+	MathHelper::Matrix4 *viewMatrix,
+	MathHelper::Matrix4 *projectionMatrix,
+	EPRIMITIVE_MODE mode,
+	bool drawIndexedPrimitives)
+{
+	if (m_frameBufferWidth > 0
+		&& m_frameBufferHeight > 0
+		&& vertexArrayObjectId != nullptr
+		&& *vertexArrayObjectId > 0
+		&& numFaces > 0
+		&& objectColor != nullptr
+		&& !m_OpenGLError)
+	{
+		if (!useShaderProgram(shaderProgramId))
+		{
+			cout << "ERROR: Cannot use shader program id: " << *shaderProgramId << endl;
+			m_OpenGLError = true;
+			glUseProgram(0);
+			return false;
+		}
+
+		COpenGLShaderProgram* shaderProgramWrapper = getShaderProgramWrapper(*shaderProgramId);
+		if (shaderProgramWrapper == nullptr)
+		{
+			cout << "ERROR: Could not find shader program wrapper for shader program id: " << *shaderProgramId << endl;
+			return false;
+		}
+
+		GLenum drawingPrimitiveMode = primitiveModeToGLEnum(mode);
+
+		// Bind vertex array object for this 3D object
+		glBindVertexArray((GLuint)*vertexArrayObjectId);
+
+		// ====== Update Model View Projection matrices and pass them to the shader====================================
+		// This needs to be done per-frame because the values change over time
+		if (shaderProgramWrapper->getModelMatrixUniformLocation() >= 0)
+		{
+			if (modelMatrix == nullptr)
+			{
+				MathHelper::Matrix4 simpleModelMatrix = MathHelper::SimpleModelMatrixRotationY(0.0f);
+				glUniformMatrix4fv(shaderProgramWrapper->getModelMatrixUniformLocation(), 1, GL_FALSE, &(simpleModelMatrix.m[0][0]));
+			}
+			else
+			{
+				glUniformMatrix4fv(shaderProgramWrapper->getModelMatrixUniformLocation(), 1, GL_FALSE, &(modelMatrix->m[0][0]));
+			}
+		}
+
+		if (shaderProgramWrapper->getViewMatrixUniformLocation() >= 0)
+		{
+			if (viewMatrix == nullptr)
+			{
+				MathHelper::Matrix4 simpleViewMatrix = MathHelper::SimpleViewMatrix(m_cameraDistance);
+				glUniformMatrix4fv(shaderProgramWrapper->getViewMatrixUniformLocation(), 1, GL_FALSE, &(simpleViewMatrix.m[0][0]));
+			}
+			else
+			{
+				glUniformMatrix4fv(shaderProgramWrapper->getViewMatrixUniformLocation(), 1, GL_FALSE, &(viewMatrix->m[0][0]));
+			}
+		}
+
+		if (shaderProgramWrapper->getProjectionMatrixUniformLocation() >= 0)
+		{
+			if (projectionMatrix == nullptr)
+			{
+				MathHelper::Matrix4 simpleProjectionMatrix = MathHelper::SimpleProjectionMatrix(float(m_frameBufferWidth) / float(m_frameBufferHeight));
+				glUniformMatrix4fv(shaderProgramWrapper->getProjectionMatrixUniformLocation(), 1, GL_FALSE, &(simpleProjectionMatrix.m[0][0]));
+			}
+			else
+			{
+				glUniformMatrix4fv(shaderProgramWrapper->getProjectionMatrixUniformLocation(), 1, GL_FALSE, &(projectionMatrix->m[0][0]));
+			}
+		}
+
+		if (shaderProgramWrapper->getColorUniformLocation() >= 0)
+		{
+			glUniform3f(shaderProgramWrapper->getColorUniformLocation(), objectColor[0], objectColor[1], objectColor[2]);
+		}
+
+		// Set the texture sampler uniform
+		if (textureObjectId != nullptr && shaderProgramWrapper->getTextureSamplerUniformLocation() >= 0 && *textureObjectId > 0)
+		{
+			// DO NOT CALL glEnable(GL_TEXTURE_2D) OR OPENGL WILL RETURN AN "1280" ERROR
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, *textureObjectId);
+			glUniform1i(shaderProgramWrapper->getTextureSamplerUniformLocation(), 0);
+		}
+		else
+		{
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, 0);
+		}
+
+		if (drawIndexedPrimitives)
+		{
+			glDrawElements(
+				drawingPrimitiveMode,
+				numFaces * 3,			// Number of indices
+				GL_UNSIGNED_SHORT,		// Data type
+				0);
+
+			// Check for OpenGL errors
+			m_OpenGLError = checkOpenGLError("glDrawElements()");
+		}
+		else
+		{
+			// Draw
+			glDrawArrays(
+				drawingPrimitiveMode,
+				0,
+				numFaces * 3 // 3 indices per face
+			);
+
+			// Check for OpenGL errors
+			m_OpenGLError = checkOpenGLError("glDrawArrays()");
+		}
+
+		// Unbind vertex array object
+		glBindVertexArray(0);
+
+		// Unbind shader program
+		glUseProgram(0);
+
 		if (!m_OpenGLError)
 			return true;
 	}
@@ -1354,8 +1514,8 @@ bool COpenGLRenderer::allocateGraphicsMemoryForMenuItem(
 */
 void COpenGLRenderer::renderColorCube(MathHelper::Matrix4 *objectTransformation)
 {
-	if (m_windowWidth > 0 
-		&& m_windowHeight > 0 
+	if (m_frameBufferWidth > 0
+		&& m_frameBufferHeight > 0
 		&& !m_OpenGLError)
 	{
 		if (!useShaderProgram(&m_testCubeShaderProgramID))
@@ -1384,7 +1544,7 @@ void COpenGLRenderer::renderColorCube(MathHelper::Matrix4 *objectTransformation)
 		{
 			if (objectTransformation == NULL)
 			{
-				MathHelper::Matrix4 modelMatrix = MathHelper::SimpleModelMatrix(0.0f);
+				MathHelper::Matrix4 modelMatrix = MathHelper::SimpleModelMatrixRotationY(0.0f);
 				glUniformMatrix4fv(shaderProgramWrapper->getModelMatrixUniformLocation(), 1, GL_FALSE, &(modelMatrix.m[0][0]));
 			}
 			else
@@ -1401,7 +1561,7 @@ void COpenGLRenderer::renderColorCube(MathHelper::Matrix4 *objectTransformation)
 
 		if (shaderProgramWrapper->getProjectionMatrixUniformLocation() >= 0)
 		{
-			MathHelper::Matrix4 projectionMatrix = MathHelper::SimpleProjectionMatrix(float(m_windowWidth) / float(m_windowHeight));
+			MathHelper::Matrix4 projectionMatrix = MathHelper::SimpleProjectionMatrix(float(m_frameBufferWidth) / float(m_frameBufferHeight));
 			glUniformMatrix4fv(shaderProgramWrapper->getProjectionMatrixUniformLocation(), 1, GL_FALSE, &(projectionMatrix.m[0][0]));
 		}
 
@@ -1429,10 +1589,82 @@ void COpenGLRenderer::renderColorCube(MathHelper::Matrix4 *objectTransformation)
 
 /*
 */
+void COpenGLRenderer::renderColorCube(
+	MathHelper::Matrix4 *modelMatrix,
+	MathHelper::Matrix4 *viewMatrix,
+	MathHelper::Matrix4 *projectionMatrix
+)
+{
+	if (!m_OpenGLError &&
+		modelMatrix != nullptr &&
+		viewMatrix != nullptr &&
+		projectionMatrix != nullptr)
+	{
+		if (!useShaderProgram(&m_testCubeShaderProgramID))
+		{
+			cout << "ERROR: Cannot use shader program id: " << m_testCubeShaderProgramID << endl;
+			m_OpenGLError = true;
+			glUseProgram(0);
+			return;
+		}
+
+		COpenGLShaderProgram* shaderProgramWrapper = getShaderProgramWrapper(m_testCubeShaderProgramID);
+		if (shaderProgramWrapper == nullptr)
+		{
+			cout << "ERROR: Could not find shader program wrapper for shader program id: " << m_testCubeShaderProgramID << endl;
+			return;
+		}
+
+		// BIND VERTEX ARRAY OBJECT !
+		// ============================================================================================================
+		glBindVertexArray(m_testCubeVAOID);
+
+		// ====== Update Model View Projection matrices and pass them to the shader====================================
+		// This needs to be done per-frame because the values change over time
+
+		if (shaderProgramWrapper->getModelMatrixUniformLocation() >= 0)
+		{
+			glUniformMatrix4fv(shaderProgramWrapper->getModelMatrixUniformLocation(), 1, GL_FALSE, &(modelMatrix->m[0][0]));
+		}
+
+		if (shaderProgramWrapper->getViewMatrixUniformLocation() >= 0)
+		{
+			glUniformMatrix4fv(shaderProgramWrapper->getViewMatrixUniformLocation(), 1, GL_FALSE, &(viewMatrix->m[0][0]));
+		}
+
+		if (shaderProgramWrapper->getProjectionMatrixUniformLocation() >= 0)
+		{
+			glUniformMatrix4fv(shaderProgramWrapper->getProjectionMatrixUniformLocation(), 1, GL_FALSE, &(projectionMatrix->m[0][0]));
+		}
+
+		// ====== DRAW ================================================================================================
+
+		// Draw 
+		glDrawElements(
+			GL_TRIANGLES,      // Triangles
+			(6 * 2) * 3,       // Number of indices: 36 indices (six faces, two triangles per face, 3 indices per triangle)
+			GL_UNSIGNED_SHORT, // Data type
+			0);
+
+		// Check for OpenGL errors
+		m_OpenGLError = checkOpenGLError("glDrawElements(GL_TRIANGLES)");
+		if (m_OpenGLError)
+			return;
+
+		// Unbind vertex array
+		glBindVertexArray(0);
+
+		// Unbind shader program
+		glUseProgram(0);
+	}
+}
+
+/*
+*/
 void COpenGLRenderer::renderTexturedCube(unsigned int cubeTextureID, MathHelper::Matrix4 *objectTransformation)
 {
-	if (m_windowWidth > 0
-		&& m_windowHeight > 0
+	if (m_frameBufferWidth > 0
+		&& m_frameBufferHeight > 0
 		&& !m_OpenGLError)
 	{
 		if (!useShaderProgram(&m_mCCubeShaderProgramID))
@@ -1461,7 +1693,7 @@ void COpenGLRenderer::renderTexturedCube(unsigned int cubeTextureID, MathHelper:
 		{
 			if (objectTransformation == NULL)
 			{
-				MathHelper::Matrix4 modelMatrix = MathHelper::SimpleModelMatrix(0.0f);
+				MathHelper::Matrix4 modelMatrix = MathHelper::SimpleModelMatrixRotationY(0.0f);
 				glUniformMatrix4fv(shaderProgramWrapper->getModelMatrixUniformLocation(), 1, GL_FALSE, &(modelMatrix.m[0][0]));
 			}
 			else
@@ -1478,8 +1710,96 @@ void COpenGLRenderer::renderTexturedCube(unsigned int cubeTextureID, MathHelper:
 
 		if (shaderProgramWrapper->getProjectionMatrixUniformLocation() >= 0)
 		{
-			MathHelper::Matrix4 projectionMatrix = MathHelper::SimpleProjectionMatrix(float(m_windowWidth) / float(m_windowHeight));
+			MathHelper::Matrix4 projectionMatrix = MathHelper::SimpleProjectionMatrix(float(m_frameBufferWidth) / float(m_frameBufferHeight));
 			glUniformMatrix4fv(shaderProgramWrapper->getProjectionMatrixUniformLocation(), 1, GL_FALSE, &(projectionMatrix.m[0][0]));
+		}
+
+		// Set the texture sampler uniform
+		if (shaderProgramWrapper->getTextureSamplerUniformLocation() >= 0 && cubeTextureID > 0)
+		{
+			// DO NOT CALL glEnable(GL_TEXTURE_2D) OR OPENGL WILL RETURN AN "1280" ERROR
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, cubeTextureID);
+			glUniform1i(shaderProgramWrapper->getTextureSamplerUniformLocation(), 0);
+		}
+		else
+		{
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, 0);
+		}
+
+		// ====== DRAW ================================================================================================
+
+		// Draw 
+		glDrawElements(
+			GL_TRIANGLES,      // Triangles
+			(6 * 2) * 3,       // Number of indices: 36 indices (six faces, two triangles per face, 3 indices per triangle)
+			GL_UNSIGNED_SHORT, // Data type
+			0);
+
+		// Check for OpenGL errors
+		m_OpenGLError = checkOpenGLError("glDrawElements(GL_TRIANGLES)");
+		if (m_OpenGLError)
+			return;
+
+		// Unbind vertex array
+		glBindVertexArray(0);
+
+		// Unbind shader program
+		glUseProgram(0);
+	}
+}
+
+/*
+*/
+void COpenGLRenderer::renderTexturedCube(
+	unsigned int cubeTextureID, 
+	MathHelper::Matrix4 *modelMatrix,
+	MathHelper::Matrix4 *viewMatrix,
+	MathHelper::Matrix4 *projectionMatrix)
+{
+	if (!m_OpenGLError &&
+		modelMatrix != nullptr &&
+		viewMatrix != nullptr &&
+		projectionMatrix != nullptr &&
+		cubeTextureID > 0
+		)
+	{
+		if (!useShaderProgram(&m_mCCubeShaderProgramID))
+		{
+			cout << "ERROR: Cannot use shader program id: " << m_mCCubeShaderProgramID << endl;
+			m_OpenGLError = true;
+			glUseProgram(0);
+			return;
+		}
+
+		COpenGLShaderProgram* shaderProgramWrapper = getShaderProgramWrapper(m_mCCubeShaderProgramID);
+		if (shaderProgramWrapper == nullptr)
+		{
+			cout << "ERROR: Could not find shader program wrapper for shader program id: " << m_mCCubeShaderProgramID << endl;
+			return;
+		}
+
+		// BIND VERTEX ARRAY OBJECT !
+		// ============================================================================================================
+		glBindVertexArray(m_mCCubeVAOID);
+
+		// ====== Update Model View Projection matrices and pass them to the shader====================================
+		// This needs to be done per-frame because the values change over time
+
+		if (shaderProgramWrapper->getModelMatrixUniformLocation() >= 0)
+		{
+			glUniformMatrix4fv(shaderProgramWrapper->getModelMatrixUniformLocation(), 1, GL_FALSE, &(modelMatrix->m[0][0]));
+		}
+
+		if (shaderProgramWrapper->getViewMatrixUniformLocation() >= 0)
+		{
+			glUniformMatrix4fv(shaderProgramWrapper->getViewMatrixUniformLocation(), 1, GL_FALSE, &(viewMatrix->m[0][0]));
+		}
+
+		if (shaderProgramWrapper->getProjectionMatrixUniformLocation() >= 0)
+		{
+			glUniformMatrix4fv(shaderProgramWrapper->getProjectionMatrixUniformLocation(), 1, GL_FALSE, &(projectionMatrix->m[0][0]));
 		}
 
 		// Set the texture sampler uniform

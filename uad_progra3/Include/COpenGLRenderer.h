@@ -1,8 +1,5 @@
 #pragma once
 
-#ifndef _OPENGL_RENDERER_H
-#define _OPENGL_RENDERER_H
-
 // include glad *before* glfw
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -47,8 +44,8 @@ public:
 	};
 
 private:
-	int m_windowWidth;
-	int m_windowHeight;
+	int m_frameBufferWidth;
+	int m_frameBufferHeight;
 	bool m_OpenGLError;
 
 	std::map<int, COpenGLShaderProgram*> m_shaderProgramWrappers;
@@ -195,6 +192,57 @@ public:
 		EPRIMITIVE_MODE mode = TRIANGLES,
 		bool drawIndexedPrimitives = false);
 
+	// 
+	bool renderObject(
+		unsigned int *shaderProgramId,
+		unsigned int *vertexArrayObjectId,
+		unsigned int *textureObjectId,
+		int numFaces,
+		GLfloat *objectColor,
+		MathHelper::Matrix4 *modelMatrix,
+		MathHelper::Matrix4 *viewMatrix,
+		MathHelper::Matrix4 *projectionMatrix,
+		EPRIMITIVE_MODE mode = TRIANGLES,
+		bool drawIndexedPrimitives = false);
+
+	/*
+	 * With vertex attributes, each run of the vertex shader will cause GLSL to retrieve the next set of vertex attributes that belong to the current vertex. 
+	 * When defining a vertex attribute as an instanced array however, the vertex shader only updates the content of the vertex attribute per instance instead of per vertex. 
+	 * This allows us to use the standard vertex attributes for data per vertex and use the instanced array for storing data that is unique per instance.
+	 */
+	//
+	bool setInstancedOffsetPositions(unsigned int *shaderProgramId);
+
+	bool setInstancedModelViewMatrices(unsigned int *shaderProgramId);
+
+	/*
+	https://learnopengl.com/Advanced-OpenGL/Instancing
+	https://learnopengl.com/code_viewer_gh.php?code=src/4.advanced_opengl/10.1.instancing_quads/instancing_quads.cpp
+	http://www.opengl-tutorial.org/intermediate-tutorials/billboards-particles/particles-instancing/
+	https://learnopengl.com/code_viewer_gh.php?code=includes/learnopengl/shader.h
+	no longer use gl_InstanceID and can directly use the offset attribute without first indexing into a large uniform array.
+
+Because an instanced array is a vertex attribute, just like the position and color variables, we also need to store its content in a vertex buffer object and configure its attribute pointer. We're first going to store the translations array (from the previous section) in a new buffer object:
+
+
+unsigned int instanceVBO;
+glGenBuffers(1, &instanceVBO);
+glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2) * 100, &translations[0], GL_STATIC_DRAW);
+glBindBuffer(GL_ARRAY_BUFFER, 0); 
+Then we also need to set its vertex attribute pointer and enable the vertex attribute:
+
+
+glEnableVertexAttribArray(2);
+glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+glBindBuffer(GL_ARRAY_BUFFER, 0);	
+glVertexAttribDivisor(2, 1);  
+What makes this code interesting is the last line where we call glVertexAttribDivisor. This function tells OpenGL when to update the content of a vertex attribute to the next element. Its first parameter is the vertex attribute in question and the second parameter the attribute divisor. By default the attribute divisor is 0 which tells OpenGL to update the content of the vertex attribute each iteration of the vertex shader. By setting this attribute to 1 we're telling OpenGL that we want to update the content of the vertex attribute when we start to render a new instance. By setting it to 2 we'd update the content every 2 instances and so on. By setting the attribute divisor to 1 we're effectively telling OpenGL that the vertex attribute at attribute location 2 is an instanced array.
+
+If we now were to render the quads again using glDrawArraysInstanced we'd get the following outpu
+	*/
+
 	//
 	bool renderMenuItem(
 		unsigned int *shaderProgramId, 
@@ -203,16 +251,29 @@ public:
 		GLfloat *menuItemColor);
 
 	//
-	void setWindowWidth(int width) { m_windowWidth = width; }
-	void setWindowHeight(int height) { m_windowHeight = height; }
+	void setFramebufferWidth(int width) { m_frameBufferWidth = width; }
+	void setFramebufferHeight(int height) { m_frameBufferHeight = height; }
+	int getFramebufferWidth() const { return m_frameBufferWidth; }
+	int getFramebufferHeight() const { return m_frameBufferHeight; }
 
+	//
+	void initializeColorCube();
 	//
 	void renderColorCube(MathHelper::Matrix4 *objectTransformation = NULL);
-	void initializeColorCube();
-
+	void renderColorCube(
+		MathHelper::Matrix4 *modelMatrix, 
+		MathHelper::Matrix4 *viewMatrix, 
+		MathHelper::Matrix4 *projectionMatrix );
+	
+	//
+	void initializeTexturedCube();
 	//
 	void renderTexturedCube(unsigned int cubeTextureID, MathHelper::Matrix4 *objectTransformation = NULL);
-	void initializeTexturedCube();
+	void renderTexturedCube(
+		unsigned int cubeTextureID, 
+		MathHelper::Matrix4 *modelMatrix,
+		MathHelper::Matrix4 *viewMatrix,
+		MathHelper::Matrix4 *projectionMatrix);
 
 	//
 	bool checkOpenGLError(char *operationAttempted);
@@ -267,7 +328,5 @@ public:
 		const GLchar *message, 
 		const GLvoid *userParam);
 };
-
-#endif // !_OPENGL_RENDERER_H
 
 // https://www.khronos.org/opengl/wiki/Common_Mistakes
