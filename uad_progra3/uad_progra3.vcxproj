@@ -166,8 +166,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Include\C3DModel.h" />
+    <ClInclude Include="Include\C3DModel_Obj.h" />
     <ClInclude Include="Include\CApp.h" />
-    <ClInclude Include="Include\CAppParcial2.h" />
+    <ClInclude Include="Include\CAppCubeTest.h" />
+    <ClInclude Include="Include\CAppEmpty.h" />
+    <ClInclude Include="Include\CAppGeometricFigures.h" />
+    <ClInclude Include="Include\CAppObjLoader.h" />
     <ClInclude Include="Include\CBinaryTree.h" />
     <ClInclude Include="Include\CBinaryTreeNode.h" />
     <ClInclude Include="Include\CCircularDoubleLinkedList.h" />
@@ -177,6 +181,7 @@
     <ClInclude Include="Include\CGameMenuItem.h" />
     <ClInclude Include="Include\CGameWindow.h" />
     <ClInclude Include="Include\COpenGLRenderer.h" />
+    <ClInclude Include="Include\COpenGLShaderProgram.h" />
     <ClInclude Include="Include\CVector3.h" />
     <ClInclude Include="Include\CWideStringHelper.h" />
     <ClInclude Include="Include\Globals.h" />
@@ -194,14 +199,19 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Source\C3DModel.cpp" />
+    <ClCompile Include="Source\C3DModel_Obj.cpp" />
     <ClCompile Include="Source\CApp.cpp" />
-    <ClCompile Include="Source\CAppParcial2.cpp" />
+    <ClCompile Include="Source\CAppCubeTest.cpp" />
+    <ClCompile Include="Source\CAppEmpty.cpp" />
+    <ClCompile Include="Source\CAppGeometricFigures.cpp" />
+    <ClCompile Include="Source\CAppObjLoader.cpp" />
     <ClCompile Include="Source\CCircularDoubleLinkedList.cpp" />
     <ClCompile Include="Source\CCircularDoubleLinkedListNode.cpp" />
     <ClCompile Include="Source\CGameMenu.cpp" />
     <ClCompile Include="Source\CGameMenuItem.cpp" />
     <ClCompile Include="Source\CGameWindow.cpp" />
     <ClCompile Include="Source\COpenGLRenderer.cpp" />
+    <ClCompile Include="Source\COpenGLShaderProgram.cpp" />
     <ClCompile Include="Source\CVector3.cpp" />
     <ClCompile Include="Source\LoadShaders.cpp" />
     <ClCompile Include="Source\LoadTGA.cpp" />

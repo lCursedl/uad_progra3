@@ -12,10 +12,11 @@
 #define KEY_MOD_ALT       0x0004
 #define KEY_MOD_UNUSED    0x0008
 
-// ===============================
-// BASE CLASS FOR ALL APPLICATIONS
-// The CAppParcial* classes derive from this class and are used in main( )
-// ===============================
+// ================================================================
+// One of the MAIN files for this project
+// BASE CLASS FOR ALL 'APPLICATIONS'
+// The CApp* classes derive from this class and are used in main( )
+// ================================================================
 class CApp
 {
 private:
@@ -23,7 +24,6 @@ private:
 	CGameMenu       *m_Menu;           // Pointer to our CMenu object
 	COpenGLRenderer *m_OpenGLRenderer; // Pointer to our OpenGL renderer object
 	bool m_Paused;                     // Is the app paused?  (i,e: window minimized)
-
 	bool isWindowInitialized() const;  // Is the CGameWindow object initialized ?
 	
 protected:
@@ -64,16 +64,22 @@ public:
 	virtual void onArrowLeft(int mods) {}
 	virtual void onArrowRight(int mods) {}
 
+	virtual void onMouseMove(float deltaX, float deltaY) {}
+
 	// Methods to run/render the app and initialize the menu
 	// *Note: They are PURE VIRTUAL METHODS, so we cannot create an object of this base class (compiler won't allow it),
 	//        instead we need to create an object of one of the derived classes, i.e: CAppParcial2
 	//        and the derived class MUST override these methods
+	virtual void initialize() = 0;
 	virtual void update(double delta_time) = 0;
 	virtual void run()    = 0;
 	virtual void render() = 0;
 
 protected:
 	virtual bool initializeMenu() = 0;
+
+	// Helper method to load a TGA texture
+	bool loadTexture(const char *filename, unsigned int *newTextureID);
 };
 
 #endif // !CAPP_H

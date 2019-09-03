@@ -4,21 +4,12 @@
 using namespace std;
 
 #include "../Include/CApp.h"
+#include "../Include/LoadTGA.h"
 
 /* */
-CApp::CApp()
+CApp::CApp():
+	CApp(CGameWindow::DEFAULT_WINDOW_WIDTH, CGameWindow::DEFAULT_WINDOW_HEIGHT)
 {
-	cout << "Constructor: CApp()" << endl;
-
-	// Create OpenGLRenderer Object
-	m_OpenGLRenderer = new COpenGLRenderer();
-
-	// Create CGameWindow object
-	m_Window = new CGameWindow(m_OpenGLRenderer);
-
-	// Create CGameMenu Object
-	// Menu will be initialized later (menu items added)
-	m_Menu = new CGameMenu();
 }
 
 /* */
@@ -161,3 +152,60 @@ void CApp::selectPrevMenuItem()
 	}
 }
 
+/* Read texture file and generate an OpenGL texture object */
+bool CApp::loadTexture(const char *filename, unsigned int *newTextureID)
+{
+	TGAFILE tgaFile;
+	tgaFile.imageData = nullptr;
+
+	if (filename == nullptr || newTextureID == nullptr || m_OpenGLRenderer == nullptr)
+	{
+		return false;
+	}
+
+	*newTextureID = 0;
+
+	if (LoadTGAFile(filename, &tgaFile))
+	{
+		if (tgaFile.imageData == nullptr ||
+			tgaFile.imageHeight < 0 ||
+			tgaFile.imageWidth < 0)
+		{
+			if (tgaFile.imageData != nullptr)
+			{
+				delete[] tgaFile.imageData;
+			}
+
+			return false;
+		}
+
+		// Create a texture object for the menu, and copy the texture data to graphics memory
+		if (!m_OpenGLRenderer->createTextureObject(
+			newTextureID,
+			tgaFile.imageData,
+			tgaFile.imageWidth,
+			tgaFile.imageHeight
+		))
+		{
+			return false;
+		}
+
+		// Texture data is stored in graphics memory now, we don't need this copy anymore
+		if (tgaFile.imageData != nullptr)
+		{
+			delete[] tgaFile.imageData;
+		}
+	}
+	else
+	{
+		// Free texture data
+		if (tgaFile.imageData != nullptr)
+		{
+			delete[] tgaFile.imageData;
+		}
+
+		return false;
+	}
+
+	return true;
+}

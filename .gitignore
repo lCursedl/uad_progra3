@@ -8,6 +8,9 @@
 /uad_progra3/Include/CSceneManager.h
 /uad_progra3/Source/CAppExamenFinal.cpp
 /uad_progra3/Source/CSceneManager.cpp
+/uad_progra3/Source/CAppParcial2.cpp
+/uad_progra3/Source/COpenGLRenderer.bkup.cpp
+/uad_progra3/Include/COpenGLRenderer.bkup.h
 # ------------------------------------------------------
 # PDB, IPDB, ILK, IOBJ
 # ------------------------------------------------------
