@@ -8,8 +8,10 @@
 #include <algorithm>
 using namespace std;
 
+#include "../Include/Globals.h"
 #include "../Include/C3DModel.h"
 #include "../Include/C3DModel_Obj.h"
+#include "../Include/CTextureLoader.h"
 
 /* */
 C3DModel::C3DModel()
@@ -19,7 +21,7 @@ C3DModel::C3DModel()
 	m_verticesRaw(NULL),
 	m_normalsRaw(NULL),
 	m_uvCoordsRaw(NULL),
-	m_Initialized(false),
+	m_modelGeometryLoaded(false),
 	m_numVertices(0), 
 	m_numNormals(0), 
 	m_numUVCoords(0), 
@@ -88,12 +90,16 @@ void C3DModel::reset()
 		m_modelTextureFilename = nullptr;
 	}
 
+	m_materialNames.clear();
+	m_materialFilenames.clear();
+	m_materialColors.clear();
+	
 	m_numVertices = 0;
 	m_numNormals = 0;
 	m_numUVCoords = 0;
 	m_numFaces = 0;
 	
-	m_Initialized = false;
+	m_modelGeometryLoaded = false;
 
 	m_graphicsMemoryObjectId = 0;
 	m_shaderProgramId = 0;
@@ -106,14 +112,16 @@ void C3DModel::reset()
 /*
  Static method ("abstract method" pattern) that checks the filename and returns a new object of the appropriate subclass
 */
-C3DModel* C3DModel::load(const char * const filename)
+C3DModel* C3DModel::load(const char * const filename, COpenGLRenderer * const shp_OpenGLRenderer)
 {
 	C3DModel *newModel = nullptr;
 
 	// Check the file type
 	// We could use the "PathFindExtension" function but that needs the shlwapi.lib, instead we'll keep it simple and avoid more dependencies
 	std::string stdFilename(filename);
+	
 	size_t dotIndex = stdFilename.rfind('.', stdFilename.length());
+	
 	if (dotIndex != string::npos)
 	{
 		std::string fileExtension = stdFilename.substr(dotIndex + 1, stdFilename.length() - dotIndex);
@@ -129,7 +137,11 @@ C3DModel* C3DModel::load(const char * const filename)
 		{
 			cout << "Loading OBJ model..." << endl;
 			newModel = new C3DModel_Obj();
-			newModel->loadFromFile(filename);
+			
+			if (!newModel->loadFromFile(filename))
+			{
+				newModel->reset();
+			}
 		}
 		else if (!fileExtension.compare("3ds"))
 		{
@@ -142,6 +154,77 @@ C3DModel* C3DModel::load(const char * const filename)
 		else if (!fileExtension.compare("fbx"))
 		{
 			cout << "FBX file format reading not implemented" << endl;
+		}
+		
+		// If model geometry could be loaded, save it to graphics card
+		if (newModel != nullptr && newModel->isGeometryLoaded() && shp_OpenGLRenderer != nullptr)
+		{
+			unsigned int newModelShaderId = 0;
+			unsigned int newTextureID = 0;
+			unsigned int newModelVertexArrayObject = 0;
+			bool loadedToGraphicsCard = false;
+
+			// By default, shaders to be loaded are for non-textured objects, but if the model has a valid texture filename and UVs, 
+			// load the appropriate shader instead 
+			if (newModel->hasUVs() && newModel->hasTextures())
+			{
+				// Switch shaders to textured object ones
+				newModelShaderId = shp_OpenGLRenderer->getShaderProgramID(SHADER_PROGRAM_TEXTURED_OBJECT);
+
+				// LOAD TEXTURE AND ALSO CREATE TEXTURE OBJECT
+				if (CTextureLoader::loadTexture(newModel->getTextureFilename(), &newTextureID, shp_OpenGLRenderer))
+				{
+					newModel->setTextureObjectId(newTextureID);
+				}
+				else
+				{
+					// Texture could not be loaded, default back to color shader
+					newModel->setTextureObjectId(0);
+					newModelShaderId = shp_OpenGLRenderer->getShaderProgramID(SHADER_PROGRAM_COLOR_OBJECT);
+				}
+			}
+			else
+			{
+				// Load color shader
+				newModelShaderId = shp_OpenGLRenderer->getShaderProgramID(SHADER_PROGRAM_COLOR_OBJECT);
+			}
+
+			// Save the shader program ID in the model
+			newModel->setShaderProgramId(newModelShaderId);
+
+			// Return if shaders are not loaded
+			if (newModelShaderId == 0)
+			{
+				cout << "ERROR: Unable to load shaders for 3D object." << endl;
+			}
+			else
+			{
+				// Allocate graphics memory for object
+				loadedToGraphicsCard = shp_OpenGLRenderer->allocateGraphicsMemoryForObject(
+					&newModelShaderId,
+					&newModelVertexArrayObject,
+					newModel->getModelVertices(),
+					newModel->getNumVertices(),
+					newModel->getModelNormals(),
+					newModel->getNumNormals(),
+					newModel->getModelUVCoords(),
+					newModel->getNumUVCoords(),
+					newModel->getModelVertexIndices(),
+					newModel->getNumFaces(),
+					newModel->getModelNormalIndices(),
+					((newModel) ? (newModel->getNumFaces()) : 0),
+					newModel->getModelUVCoordIndices(),
+					((newModel) ? (newModel->getNumFaces()) : 0)
+				);
+
+				newModel->setGraphicsMemoryObjectId(newModelVertexArrayObject);
+
+				// If error ocurred, cleanup memory
+				if (!loadedToGraphicsCard)
+				{
+					newModel->setGraphicsMemoryObjectId(0);
+				}
+			}
 		}
 	}
 	else

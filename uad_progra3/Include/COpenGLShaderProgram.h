@@ -12,6 +12,8 @@ using namespace std;
 #define UNIFORM_PROJECTION_MATRIX		"uProjMatrix"
 #define UNIFORM_COLOR					"uColor"
 #define UNIFORM_TEXTURE_SAMPLER			"textureSampler"
+#define UNIFORM_AMBIENT_COLOR           "uAmbientColor"
+#define UNIFORM_AMBIENT_INTENSITY       "uAmbientIntensity"
 
 #define ATTRIBUTE_POSITION				"attPosition"
 #define ATTRIBUTE_NORMAL				"attNormal"
@@ -22,6 +24,19 @@ using namespace std;
 
 class COpenGLShaderProgram
 {
+public:
+	enum class SHADER_PARAM_TYPE
+	{
+		UNIFORM_UINT = 0,
+		UNIFORM_INT,
+		UNIFORM_FLOAT,
+		UNIFORM_BOOL,
+		ATTRIB_UINT,
+		ATTRIB_INT,
+		ATTRIB_FLOAT,
+		ATTRIB_BOOL
+	};
+
 private:
 
 	// Shader program ID
@@ -41,6 +56,7 @@ public:
 
 	// Setters / Getters
 	//
+    bool setParameter(std::string paramName, void *val, COpenGLShaderProgram::SHADER_PARAM_TYPE paramType, unsigned int szValue, int numValues);
 
 	// Shader Program ID
 	unsigned int getShaderProgramID() const { return m_shaderProgramID; }
@@ -55,6 +71,8 @@ public:
 	int getProjectionMatrixUniformLocation() const	{ return getUniformLocation(UNIFORM_PROJECTION_MATRIX);	}
 	int getColorUniformLocation() const				{ return getUniformLocation(UNIFORM_COLOR);				}
 	int getTextureSamplerUniformLocation() const	{ return getUniformLocation(UNIFORM_TEXTURE_SAMPLER);	}
+    int getAmbientLightColorUniformLocation()     const { return getUniformLocation(UNIFORM_AMBIENT_COLOR);     }
+	int getAmbientLightIntensityUniformLocation() const { return getUniformLocation(UNIFORM_AMBIENT_INTENSITY); }
 
 	// Attributes
 	int getAttributeLocation(std::string attributeName) const;
@@ -64,6 +82,8 @@ public:
 	int getNormalAttributeLocation() const			{ return getAttributeLocation(ATTRIBUTE_NORMAL);		}
 	int getUVAttributeLocation() const				{ return getAttributeLocation(ATTRIBUTE_UV);			}
 	int getColorAttributeLocation() const			{ return getAttributeLocation(ATTRIBUTE_COLOR);			}
+    int getMVPMatAttributeLocation() const          { return getAttributeLocation(ATTRIBUTE_INSTANCING_MVP_MAT4);   }
+	int getWorldMatAttributeLocation() const        { return getAttributeLocation(ATTRIBUTE_INSTANCING_WORLD_MAT4); }	
 };
 
 

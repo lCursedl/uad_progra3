@@ -288,6 +288,7 @@ namespace MathHelper
      *   * http://www.songho.ca/opengl/gl_anglestoaxes.html
      *   * http://www.songho.ca/opengl/gl_matrix.html
 	 *   * http://www.opengl-tutorial.org/es/beginners-tutorials/tutorial-3-matrices/
+	 *   * https://learnopengl.com/Getting-started/Coordinate-Systems
 	 */ 
 	inline static Matrix4 PerspectiveProjectionMatrix(
 		const float &angleOfView,  // Angle of view in degrees
@@ -316,12 +317,15 @@ namespace MathHelper
 	 */
 	inline static Matrix4 ViewMatrix(CVector3 camEyePos, CVector3 camLookAt, CVector3 camUpVec)
 	{
+		CVector3 worldUp(0.0f, 1.0f, 0.0f);
+
 		// Calculate forward vector from target to eye
 		CVector3 forward = camEyePos - camLookAt;
 		forward.normalize();
 
 		// Calculate left vector
-		CVector3 left = camUpVec.cross(forward);
+		CVector3 left = worldUp.cross(forward);
+		//CVector3 left = camUpVec.cross(forward);
 		left.normalize();
 
 		// Recalculate the orthonormal up vector

@@ -108,8 +108,6 @@ public:
 private:
 
 	void createPyramidGeometry();
-	void normcrossprod(float v1[3], float v2[3], float out[3]);
-	void normalize(float v[3]);
 
 };
 

@@ -11,6 +11,7 @@ using namespace std;
 #include "../Include/CAppCubeTest.h"
 #include "../Include/C3DModel.h"
 #include "../Include/CWideStringHelper.h"
+#include "../Include/CTextureLoader.h"
 
 /* */
 CAppCubeTest::CAppCubeTest() :
@@ -55,9 +56,7 @@ void CAppCubeTest::run()
 
 			// Set initial clear screen color
 			getOpenGLRenderer()->setClearScreenColor(0.15f, 0.75f, 0.75f);
-			// Initialize window width/height in the renderer
-			//getOpenGLRenderer()->setWindowWidth(getGameWindow()->getWidth());
-			//getOpenGLRenderer()->setWindowHeight(getGameWindow()->getHeight());
+
 			// Initialize a test cube
 			getOpenGLRenderer()->initializeColorCube();
 
@@ -90,7 +89,7 @@ bool CAppCubeTest::initializeTexturedCube()
 
 	// Initialize the texture
 	m_texturedCubeTextureID = 0;
-	if (!loadTexture(resourceFilenameTexture.c_str(), &m_texturedCubeTextureID))
+	if (!CTextureLoader::loadTexture(resourceFilenameTexture.c_str(), &m_texturedCubeTextureID, getOpenGLRenderer()))
 	{
 		cout << "ERROR: Unable load texture for textured cube" << endl;
 		return false;
@@ -149,36 +148,16 @@ void CAppCubeTest::render()
 	MathHelper::Matrix4 sm = MathHelper::ScaleMatrix(
 		0.5f, 0.5f, 0.5f
 	);
-	/*sm.m[0][0] = 0.25f;
-	sm.m[1][1] = 0.25f;
-	sm.m[2][2] = 0.25f;*/
 
 	MathHelper::Matrix4 tm = MathHelper::TranslationMatrix(
 		m_objectPosition.X, m_objectPosition.Y, m_objectPosition.Z
 	);
 
-	/*MathHelper::Matrix4 tm = MathHelper::IdentityMatrix();
-	tm.m[0][3] = m_objectPosition.X;
-	tm.m[1][3] = m_objectPosition.Y;
-	tm.m[2][3] = m_objectPosition.Z;*/
-	//tm = MathHelper::Transpose(tm);
-
 	MathHelper::Matrix4 rx = MathHelper::RotAroundX((float)totalDegreesRotatedRadians);
 	MathHelper::Matrix4 ry = MathHelper::RotAroundY((float)totalDegreesRotatedRadians);
-	/*rx.m[1][1] = cosine;
-	rx.m[1][2] = -sine;
-	rx.m[2][1] = sine;
-	rx.m[2][2] = cosine;*/
-	//rx = MathHelper::Transpose(rx);
-	//ry = MathHelper::Transpose(ry);
-
 	MathHelper::Matrix4 finalRotation = MathHelper::Multiply(rx, ry);
 	MathHelper::Matrix4 rotationAndScale = MathHelper::Multiply(finalRotation, sm);
 	MathHelper::Matrix4 modelMatrix = MathHelper::Multiply(rotationAndScale, tm);
-	//MathHelper::Matrix4 m1 = MathHelper::Multiply(tm, ry);
-
-	// Get a matrix that has both the object rotation and translation
-	// MathHelper::Matrix4 modelMatrix = MathHelper::ModelMatrix((float)totalDegreesRotatedRadians, m_objectPosition);
 
 	CVector3 pos2 = m_objectPosition;
 	pos2 += CVector3(3.0f, 0.0f, 0.0f);
@@ -207,6 +186,7 @@ void CAppCubeTest::render()
 	// No model loaded, show test cubes
 	//getOpenGLRenderer()->renderColorCube(&modelMatrix);
 	getOpenGLRenderer()->renderColorCube(&modelMatrix, &viewM, &projM);
+	
 	//getOpenGLRenderer()->renderTexturedCube(m_texturedCubeTextureID, &modelMatrix2);
 	getOpenGLRenderer()->renderTexturedCube(m_texturedCubeTextureID, &modelMatrix2, &viewM, &projM);
 }
