@@ -115,6 +115,30 @@ CVector3 CVector3::operator-(const CVector3 & other)
 
 /*
 */
+CVector3 CVector3::operator*(float delta)
+{
+	CVector3 res;
+	res.setValues(
+		this->X * delta,
+		this->Y * delta,
+		this->Z * delta
+	);
+	return res;
+}
+
+/*
+*/
+CVector3& CVector3::operator*=(float delta)
+{
+	X *= delta;
+	Y *= delta;
+	Z *= delta;
+
+	return *this;
+}
+
+/*
+*/
 void CVector3::normalize()
 {
 	float mag = magnitude();

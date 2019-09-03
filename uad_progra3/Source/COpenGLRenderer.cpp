@@ -30,8 +30,12 @@ COpenGLRenderer::COpenGLRenderer():
 	m_testCubeVAOID{ 0 },
 	m_mCCubeVAOID{ 0 },
 	m_testCubeShaderProgramID{ 0 },
-	m_mCCubeShaderProgramID{ 0 }
+	m_mCCubeShaderProgramID{ 0 },
+	m_activeShaderProgram{ nullptr },
+	m_activeShaderProgramWrapper{ nullptr }
 {
+	cout << "Constructor: COpenGLRenderer()" << endl;
+
 	m_expectedUniformsInShader.push_back(UNIFORM_MODEL_MATRIX);
 	m_expectedUniformsInShader.push_back(UNIFORM_VIEW_MATRIX);
 	m_expectedUniformsInShader.push_back(UNIFORM_PROJECTION_MATRIX);
@@ -44,12 +48,42 @@ COpenGLRenderer::COpenGLRenderer():
 	m_expectedAttributesInShader.push_back(ATTRIBUTE_COLOR);
 	m_expectedAttributesInShader.push_back(ATTRIBUTE_INSTANCING_MVP_MAT4);
 	m_expectedAttributesInShader.push_back(ATTRIBUTE_INSTANCING_WORLD_MAT4);
+
+	// Load program names, vertex and fragment shaders in the same pos in each array
+	m_knownShaderProgramNames.push_back(SHADER_PROGRAM_COLOR_CUBE);
+	m_knownShaderProgramNames.push_back(SHADER_PROGRAM_COLOR_OBJECT);
+	m_knownShaderProgramNames.push_back(SHADER_PROGRAM_TEXTURED_OBJECT);
+	m_knownShaderProgramNames.push_back(SHADER_PROGRAM_COLOR_OBJECT_PHONG);
+	m_knownShaderProgramNames.push_back(SHADER_PROGRAM_TEXTURED_OBJECT_PHONE);
+	m_knownShaderProgramNames.push_back(SHADER_PROGRAM_TEXTURED_CUBE);
+	m_knownShaderProgramNames.push_back(SHADER_PROGRAM_MENU);
+	m_knownShaderProgramNames.push_back(SHADER_PROGRAM_WIREFRAME);
+
+	m_knownShaderProgramVertexShaders.push_back(VERTEX_SHADER_3D_OBJECT_COLOR);
+	m_knownShaderProgramVertexShaders.push_back(VERTEX_SHADER_3D_OBJECT);
+	m_knownShaderProgramVertexShaders.push_back(VERTEX_SHADER_TEXTURED_3D_OBJECT);
+	m_knownShaderProgramVertexShaders.push_back(VERTEX_SHADER_3D_OBJECT_PHONG);
+	m_knownShaderProgramVertexShaders.push_back(VERTEX_SHADER_TEXTURE_3D_OBJECT_PHONG);
+	m_knownShaderProgramVertexShaders.push_back(VERTEX_SHADER_MC_CUBE);
+	m_knownShaderProgramVertexShaders.push_back(VERTEX_SHADER_MENU);
+	m_knownShaderProgramVertexShaders.push_back(VERTEX_SHADER_WIREFRAME);
+
+	m_knownShaderProgramFragmentShaders.push_back(FRAGMENT_SHADER_3D_OBJECT_COLOR);
+	m_knownShaderProgramFragmentShaders.push_back(FRAGMENT_SHADER_3D_OBJECT);
+	m_knownShaderProgramFragmentShaders.push_back(FRAGMENT_SHADER_TEXTURED_3D_OBJECT);
+	m_knownShaderProgramFragmentShaders.push_back(FRAGMENT_SHADER_3D_OBJECT_PHONG);
+	m_knownShaderProgramFragmentShaders.push_back(FRAGMENT_SHADER_TEXTURE_3D_OBJECT_PHONG);
+	m_knownShaderProgramFragmentShaders.push_back(FRAGMENT_SHADER_MC_CUBE);
+	m_knownShaderProgramFragmentShaders.push_back(FRAGMENT_SHADER_MENU);
+	m_knownShaderProgramFragmentShaders.push_back(FRAGMENT_SHADER_WIREFRAME);
 }
 
 /*
 */
 COpenGLRenderer::~COpenGLRenderer()
 {
+	cout << "Destructor: ~COpenGLRenderer()" << endl;
+
 	// Delete all shader programs
 	for (auto it = m_shaderProgramWrappers.begin(); it != m_shaderProgramWrappers.end(); ++it)
 	{
@@ -64,6 +98,7 @@ COpenGLRenderer::~COpenGLRenderer()
 	}
 
 	m_shaderProgramWrappers.clear();
+	m_knownShaders.clear();
 	m_expectedUniformsInShader.clear();
 	m_expectedAttributesInShader.clear();
 
@@ -77,11 +112,83 @@ COpenGLRenderer::~COpenGLRenderer()
 	{
 		deleteVertexArrayObject(&m_mCCubeVAOID);
 	}
+
+	m_activeShaderProgram = nullptr;
+	m_activeShaderProgramWrapper = nullptr;
 }
 
 /*
 */
-bool COpenGLRenderer::createShaderProgram(unsigned int *shaderProgramId, const char *vertexShader, const char *fragmentShader)
+bool COpenGLRenderer::initialize()
+{
+	unsigned int result = 0;
+	int loadedShaderCount = 0;
+	std::wstring wresourceFilenameVS;
+	std::wstring wresourceFilenameFS;
+	std::string resourceFilenameVS;
+	std::string resourceFilenameFS;
+
+	// Make sure size of all shader filenames vectors is the same
+	if (m_knownShaderProgramNames.size() == m_knownShaderProgramVertexShaders.size() &&
+		m_knownShaderProgramNames.size() == m_knownShaderProgramFragmentShaders.size())
+	{
+		// Loop through all known program names vector
+		for (int i = 0; i < (int)m_knownShaderProgramNames.size(); ++i)
+		{
+			resourceFilenameFS = "";
+			resourceFilenameVS = "";
+			wresourceFilenameFS = L"";
+			wresourceFilenameVS = L"";
+
+			// Get the full filename of the vertex and fragment shaders
+			if (!CWideStringHelper::GetResourceFullPath(m_knownShaderProgramVertexShaders[i].c_str(), wresourceFilenameVS, resourceFilenameVS) ||
+				!CWideStringHelper::GetResourceFullPath(m_knownShaderProgramFragmentShaders[i].c_str(), wresourceFilenameFS, resourceFilenameFS))
+			{
+				cout << "ERROR: Unable to find one or more shaders: " << endl;
+				cout << "  " << m_knownShaderProgramVertexShaders[i].c_str() << endl;
+				cout << "  " << m_knownShaderProgramFragmentShaders[i].c_str() << endl;
+			}
+			else
+			{
+				// Create the shader
+				if (createShaderProgram(
+					m_knownShaderProgramNames[i],
+					&result,
+					resourceFilenameVS.c_str(),
+					resourceFilenameFS.c_str()
+				))
+				{
+					++loadedShaderCount;
+				}
+			}
+		}
+	}
+	else
+	{
+		std::cout << "ERROR: Missing or invalid known program shaders" << std::endl;
+	}
+
+	return (loadedShaderCount == (int)m_knownShaderProgramNames.size());
+}
+
+/*
+*/
+unsigned int COpenGLRenderer::getShaderProgramID(std::string shaderProgramName)
+{
+	unsigned int result = 0;
+	auto it = m_knownShaders.find(shaderProgramName);
+
+	if (it != m_knownShaders.end())
+	{
+		result = it->second;
+	}
+
+	return result;
+}
+
+/*
+*/
+bool COpenGLRenderer::createShaderProgram(std::string shaderProgramName, unsigned int *shaderProgramId, const char *vertexShader, const char *fragmentShader)
 {
 	if (shaderProgramId != NULL)
 	{
@@ -148,6 +255,15 @@ bool COpenGLRenderer::createShaderProgram(unsigned int *shaderProgramId, const c
 
 			// Insert shader program in map
 			m_shaderProgramWrappers.insert(std::make_pair(*shaderProgramId, newShaderProgramWrapper));
+
+			// Insert into known shaders as well
+			auto it_shader = m_knownShaders.find(shaderProgramName);
+
+			// If no entry was found
+			if (it_shader == m_knownShaders.end())
+			{
+				m_knownShaders.insert(std::pair<std::string, unsigned int>(shaderProgramName, *shaderProgramId));
+			}
 		}
 
 		return (*shaderProgramId > 0);
@@ -180,9 +296,9 @@ bool COpenGLRenderer::deleteShaderProgram(unsigned int *shaderProgramId)
 
 /*
 */
-bool COpenGLRenderer::useShaderProgram(const unsigned int * const shaderProgramId) const
+bool COpenGLRenderer::useShaderProgram(const unsigned int * const shaderProgramId) 
 {
-	if (shaderProgramId != NULL && *shaderProgramId > 0)
+	if (shaderProgramId != nullptr && *shaderProgramId > 0)
 	{
 		// Make sure there's a shader with uniforms and attribs
 		auto it = m_shaderProgramWrappers.find(*shaderProgramId);
@@ -190,11 +306,137 @@ bool COpenGLRenderer::useShaderProgram(const unsigned int * const shaderProgramI
 		if (it != m_shaderProgramWrappers.end() && it->second != nullptr)
 		{
 			glUseProgram((GLuint)*shaderProgramId);
+			m_activeShaderProgram = shaderProgramId;
+			m_activeShaderProgramWrapper = it->second;
+
 			return true;
 		}
+		else
+		{
+			m_activeShaderProgram = nullptr;
+			m_activeShaderProgramWrapper = nullptr;
+		}
+	}
+	else
+	{
+		glUseProgram(0);
+		m_activeShaderProgram = nullptr;
+		m_activeShaderProgramWrapper = nullptr;
 	}
 
 	return false;
+}
+
+/*
+*/
+void COpenGLRenderer::setCurrentVertexArrayObjectID(unsigned int *vertexArrayObjectId)
+{
+	if (vertexArrayObjectId != nullptr && *vertexArrayObjectId > 0)
+	{
+		// Bind vertex array object for this 3D object
+		glBindVertexArray((GLuint)*vertexArrayObjectId);
+	}
+	else
+	{
+		// Unbind vertex array object
+		glBindVertexArray(0);
+	}
+}
+
+/*
+*/
+void COpenGLRenderer::setCurrentShaderObjectColor(GLfloat *objectColor)
+{
+	if (m_activeShaderProgram != nullptr &&
+		m_activeShaderProgramWrapper != nullptr &&
+		m_activeShaderProgramWrapper->getColorUniformLocation() >= 0)
+	{
+		glUniform3f(m_activeShaderProgramWrapper->getColorUniformLocation(), objectColor[0], objectColor[1], objectColor[2]);
+	}
+}
+
+/*
+ * Set the view matrix every time the camera changes
+ */
+void COpenGLRenderer::setCurrentShaderViewMatrix(MathHelper::Matrix4 *viewMatrix)
+{
+	if (m_activeShaderProgram != nullptr &&
+		m_activeShaderProgramWrapper != nullptr &&
+		m_activeShaderProgramWrapper->getViewMatrixUniformLocation() >= 0)
+	{
+		if (viewMatrix == nullptr)
+		{
+			MathHelper::Matrix4 simpleViewMatrix = MathHelper::SimpleViewMatrix(m_cameraDistance);
+			glUniformMatrix4fv(m_activeShaderProgramWrapper->getViewMatrixUniformLocation(), 1, GL_FALSE, &(simpleViewMatrix.m[0][0]));
+		}
+		else
+		{
+			glUniformMatrix4fv(m_activeShaderProgramWrapper->getViewMatrixUniformLocation(), 1, GL_FALSE, &(viewMatrix->m[0][0]));
+		}
+	}
+}
+
+/*
+ * Set the projection matrix every time the projection or window size changes
+ */
+void COpenGLRenderer::setCurrentShaderProjectionMatrix(MathHelper::Matrix4 *projectionMatrix)
+{
+	if (m_activeShaderProgram != nullptr &&
+		m_activeShaderProgramWrapper != nullptr &&
+		m_activeShaderProgramWrapper->getProjectionMatrixUniformLocation() >= 0)
+	{
+		if (projectionMatrix == nullptr)
+		{
+			if (m_frameBufferWidth == 0 || m_frameBufferHeight == 0)
+			{
+				m_frameBufferWidth = RENDERER_DEFAULT_FB_WIDTH;
+				m_frameBufferHeight = RENDERER_DEFAULT_FB_HEIGHT;
+			}
+
+			MathHelper::Matrix4 simpleProjectionMatrix = MathHelper::SimpleProjectionMatrix(float(m_frameBufferWidth) / float(m_frameBufferHeight));
+			glUniformMatrix4fv(m_activeShaderProgramWrapper->getProjectionMatrixUniformLocation(), 1, GL_FALSE, &(simpleProjectionMatrix.m[0][0]));
+		}
+		else
+		{
+			glUniformMatrix4fv(m_activeShaderProgramWrapper->getProjectionMatrixUniformLocation(), 1, GL_FALSE, &(projectionMatrix->m[0][0]));
+		}
+	}
+}
+
+/*
+*/
+void COpenGLRenderer::setCurrentShaderTexture(unsigned int *textureObjectId)
+{
+	// Set the texture sampler uniform
+	if (textureObjectId != nullptr && 
+		*textureObjectId > 0 &&
+		m_activeShaderProgramWrapper != nullptr &&
+		m_activeShaderProgramWrapper->getTextureSamplerUniformLocation() >= 0)
+	{
+		// DO NOT CALL glEnable(GL_TEXTURE_2D) OR OPENGL WILL RETURN AN "1280" ERROR
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, *textureObjectId);
+		glUniform1i(m_activeShaderProgramWrapper->getTextureSamplerUniformLocation(), 0);
+	}
+	else
+	{
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+}
+
+/*
+*/
+void COpenGLRenderer::setCurrentShaderAmbientLight(GLfloat red, GLfloat green, GLfloat blue, GLfloat ambientIntensity)
+{
+	// Set the ambient light uniform
+	if (m_activeShaderProgramWrapper != nullptr &&
+		m_activeShaderProgramWrapper->getAmbientLightColorUniformLocation() >= 0 &&
+		m_activeShaderProgramWrapper->getAmbientLightIntensityUniformLocation() >= 0)
+	{
+		glUniform3f(m_activeShaderProgramWrapper->getAmbientLightColorUniformLocation(), red, green, blue);
+		glUniform1f(m_activeShaderProgramWrapper->getAmbientLightIntensityUniformLocation(), ambientIntensity);
+	}
 }
 
 /*
@@ -221,6 +463,9 @@ bool COpenGLRenderer::createTextureObject(unsigned int *textureObjectId, unsigne
 		glGenerateMipmap(GL_TEXTURE_2D);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 		
 		// Check for OpenGL errors
 		m_OpenGLError = checkOpenGLError("COpenGLRenderer::createTextureObject");
@@ -328,7 +573,7 @@ bool COpenGLRenderer::allocateGraphicsMemoryForObject(
 	unsigned short *indicesNormals, int numIndicesNormals,
 	unsigned short *indicesUVCoords, int numIndicesUVCoords)
 {
-	if (shaderProgramId == NULL || *shaderProgramId <= 0)
+	if (shaderProgramId == NULL || *shaderProgramId == 0)
 	{
 		cout << "Error: Invalid shader object ID" << endl;
 		return false;
@@ -898,7 +1143,9 @@ bool COpenGLRenderer::renderObject(
 		&& vertexArrayObjectId != nullptr
 		&& *vertexArrayObjectId > 0
 		&& numFaces > 0
-		&& objectColor != nullptr
+		&& objectColor != nullptr 
+		&& m_activeShaderProgram != nullptr
+		&& m_activeShaderProgramWrapper != nullptr
 		&& !m_OpenGLError)
 	{
 		if (!useShaderProgram(shaderProgramId))
@@ -1019,6 +1266,81 @@ bool COpenGLRenderer::renderObject(
 }
 
 /*
+ * Calling this method assumes the following methods have been called:
+ * ------------------------------------------------------------------
+ *
+ * 1 - useShaderProgram( ) 
+ * 2 - setCurrentVertexArrayObjectID( ) 
+ * 3 - setCurrentShaderObjectColor( )
+ * 4 - setCurrentShaderViewMatrix( )
+ * 5 - setCurrentShaderProjectionMatrix( )
+ * 6 - setCurrentShaderTexture( ) (if applicable)
+ * 7 - setCurrentShaderAmbientLight( )
+ *
+ */
+bool COpenGLRenderer::renderObjectNew(
+	int numFaces,
+	MathHelper::Matrix4 *modelMatrix,
+	EPRIMITIVE_MODE mode,
+	bool drawIndexedPrimitives)
+{
+	if (numFaces > 0
+		&& m_activeShaderProgram != nullptr
+		&& m_activeShaderProgramWrapper != nullptr
+		&& !m_OpenGLError)
+	{
+		GLenum drawingPrimitiveMode = primitiveModeToGLEnum(mode);
+		int modelMatrixUniformLocation = m_activeShaderProgramWrapper->getModelMatrixUniformLocation();
+
+		// ====== Update Model View Projection matrices and pass them to the shader====================================
+		// This needs to be done per-frame because the values change over time
+		if (modelMatrixUniformLocation >= 0)
+		{
+			if (modelMatrix == nullptr)
+			{
+				MathHelper::Matrix4 simpleModelMatrix = MathHelper::SimpleModelMatrixRotationY(0.0f);
+				glUniformMatrix4fv(modelMatrixUniformLocation, 1, GL_FALSE, &(simpleModelMatrix.m[0][0]));
+			}
+			else
+			{
+				glUniformMatrix4fv(modelMatrixUniformLocation, 1, GL_FALSE, &(modelMatrix->m[0][0]));
+			}
+		}
+
+		if (drawIndexedPrimitives)
+		{
+			glDrawElements(
+				drawingPrimitiveMode,
+				numFaces * 3,			// Number of indices
+				GL_UNSIGNED_SHORT,		// Data type
+				0);
+
+			// Check for OpenGL errors
+			m_OpenGLError = checkOpenGLError("glDrawElements()");
+		}
+		else
+		{
+			// Draw
+			glDrawArrays(
+				drawingPrimitiveMode,
+				0,
+				numFaces * 3 // 3 indices per face
+			);
+
+			// Check for OpenGL errors
+			m_OpenGLError = checkOpenGLError("glDrawArrays()");
+		}
+
+		if (!m_OpenGLError)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/*
 */
 bool COpenGLRenderer::renderMenuItem(
 	unsigned int *shaderProgramId,
@@ -1032,6 +1354,8 @@ bool COpenGLRenderer::renderMenuItem(
 		&& vertexArrayObjectId != NULL
 		&& *vertexArrayObjectId > 0
 		&& menuItemColor != NULL
+		&& m_activeShaderProgram != nullptr
+		&& m_activeShaderProgramWrapper != nullptr
 		&& !m_OpenGLError)
 	{
 		if (!useShaderProgram(shaderProgramId))
@@ -1115,6 +1439,7 @@ void COpenGLRenderer::initializeColorCube()
 	}
 
 	if (createShaderProgram(
+		SHADER_PROGRAM_COLOR_CUBE,
 		&m_testCubeShaderProgramID,
 		resourceFilenameVS.c_str(),
 		resourceFilenameFS.c_str()
@@ -1239,6 +1564,7 @@ void COpenGLRenderer::initializeTexturedCube()
 	}
 
 	if (createShaderProgram(
+		SHADER_PROGRAM_TEXTURED_CUBE,
 		&m_mCCubeShaderProgramID,
 		resourceFilenameVS.c_str(),
 		resourceFilenameFS.c_str()
@@ -1516,6 +1842,8 @@ void COpenGLRenderer::renderColorCube(MathHelper::Matrix4 *objectTransformation)
 {
 	if (m_frameBufferWidth > 0
 		&& m_frameBufferHeight > 0
+		&& m_activeShaderProgram != nullptr
+		&& m_activeShaderProgramWrapper != nullptr
 		&& !m_OpenGLError)
 	{
 		if (!useShaderProgram(&m_testCubeShaderProgramID))
@@ -1595,10 +1923,12 @@ void COpenGLRenderer::renderColorCube(
 	MathHelper::Matrix4 *projectionMatrix
 )
 {
-	if (!m_OpenGLError &&
-		modelMatrix != nullptr &&
-		viewMatrix != nullptr &&
-		projectionMatrix != nullptr)
+	if (!m_OpenGLError
+		&& modelMatrix != nullptr
+		&& viewMatrix != nullptr 
+		&& projectionMatrix != nullptr
+		&& m_activeShaderProgram != nullptr
+		&& m_activeShaderProgramWrapper != nullptr)
 	{
 		if (!useShaderProgram(&m_testCubeShaderProgramID))
 		{
@@ -1665,7 +1995,9 @@ void COpenGLRenderer::renderTexturedCube(unsigned int cubeTextureID, MathHelper:
 {
 	if (m_frameBufferWidth > 0
 		&& m_frameBufferHeight > 0
-		&& !m_OpenGLError)
+		&& !m_OpenGLError
+		&& m_activeShaderProgram != nullptr
+		&& m_activeShaderProgramWrapper != nullptr)
 	{
 		if (!useShaderProgram(&m_mCCubeShaderProgramID))
 		{
@@ -1758,11 +2090,13 @@ void COpenGLRenderer::renderTexturedCube(
 	MathHelper::Matrix4 *viewMatrix,
 	MathHelper::Matrix4 *projectionMatrix)
 {
-	if (!m_OpenGLError &&
-		modelMatrix != nullptr &&
-		viewMatrix != nullptr &&
-		projectionMatrix != nullptr &&
-		cubeTextureID > 0
+	if (!m_OpenGLError
+		&& modelMatrix != nullptr
+		&& viewMatrix != nullptr
+		&& projectionMatrix != nullptr
+		&& cubeTextureID > 0
+		&& m_activeShaderProgram != nullptr
+		&& m_activeShaderProgramWrapper != nullptr
 		)
 	{
 		if (!useShaderProgram(&m_mCCubeShaderProgramID))
@@ -1856,7 +2190,7 @@ bool COpenGLRenderer::checkOpenGLError(char *operationAttempted)
 
 /*
 */
-void COpenGLRenderer::moveCamera(float direction)
+void COpenGLRenderer::simpleCameraZoom(float direction)
 {
 	m_cameraDistance += (direction * MOVE_CAMERA_DELTA);
 
@@ -1971,5 +2305,590 @@ void APIENTRY COpenGLRenderer::debugOutputCallback(
 	std::cout << std::endl;
 }
 
+/*
+*/
+GLenum COpenGLRenderer::translateBlendMode(OPENGL_BLEND_MODE factor)
+{
+	GLenum translatedValue = GL_ONE;
+
+	switch (factor)
+	{
+	case BLEND_ZERO: 
+		translatedValue = GL_ZERO;
+		break;
+	case BLEND_ONE: 
+		translatedValue = GL_ONE;
+		break;
+	case BLEND_SRC_COLOR:
+		translatedValue = GL_SRC_COLOR;
+		break;
+	case BLEND_ONE_MINUS_SRC_COLOR: 
+		translatedValue = GL_ONE_MINUS_SRC_COLOR;
+		break;
+	case BLEND_DST_COLOR: 
+		translatedValue = GL_DST_COLOR;
+		break;
+	case BLEND_ONE_MINUS_DST_COLOR: 
+		translatedValue = GL_ONE_MINUS_DST_COLOR;
+		break;
+	case BLEND_SRC_ALPHA: 
+		translatedValue = GL_SRC_ALPHA;
+		break;
+	case BLEND_ONE_MINUS_SRC_ALPHA: 
+		translatedValue = GL_ONE_MINUS_SRC_ALPHA;
+		break;
+	case BLEND_DST_ALPHA: 
+		translatedValue = GL_DST_ALPHA;
+		break;
+	case BLEND_ONE_MINUS_DST_ALPHA: 
+		translatedValue = GL_ONE_MINUS_DST_ALPHA;
+		break;
+	case BLEND_CONSTANT_COLOR: 
+		translatedValue = GL_CONSTANT_COLOR;
+		break;
+	case BLEND_ONE_MINUS_CONSTANT_COLOR: 
+		translatedValue = GL_ONE_MINUS_CONSTANT_COLOR;
+		break;
+	case BLEND_CONSTANT_ALPHA: 
+		translatedValue = GL_CONSTANT_ALPHA;
+		break;
+	case BLEND_ONE_MINUS_CONSTANT_ALPHA: 
+		translatedValue = GL_ONE_MINUS_CONSTANT_ALPHA;
+		break;
+	default:
+		translatedValue = GL_ONE;
+		break;
+	}
+
+	return translatedValue;
+}
+
+/*
+*/
+void COpenGLRenderer::setBlendingMode(OPENGL_BLEND_MODE sourceFactor, OPENGL_BLEND_MODE destinationFactor)
+{
+	GLenum srcF = translateBlendMode(sourceFactor);
+	GLenum dstF = translateBlendMode(destinationFactor);
+
+	glBlendFunc(srcF, dstF);
+}
 
 
+/*
+*/
+void COpenGLRenderer::startProfiling()
+{
+	// TO-DO
+}
+
+/*
+*/
+void COpenGLRenderer::endProfiling()
+{
+	// TO-DO
+}
+
+/*
+*/
+GLuint64 COpenGLRenderer::getProfilingTime()
+{
+	// TO-DO
+	return 0;
+}
+
+/*
+*/
+void COpenGLRenderer::allocateGraphicsMemoryForLines(
+	const unsigned int * const shaderProgramId,
+	unsigned int *vertexArrayObjectID,
+	GLfloat *lineVertices, int numLines,    // Coordinates (x1, y1, z1), (x2, y2, z2) of each line. 6 floats per line
+	float lineWidth,                        // Width/thickness of the line in pixel
+	float red, float green, float blue,     // RGB color components
+	float backR, float backG, float backB,  // Color of background when alphablend=false,  Br=alpha of color when alphablend=true
+	float cAlpha,                           // Alpha 
+	bool alphablend)
+{
+	if (alphablend)
+	{
+		backR = cAlpha;
+	}
+
+	//line(
+	//	x1, y1, x2, y2,
+	//	lineWidth,
+	//	red, green, blue,
+	//	backR, backG, backB,
+	//	alphablend);
+}
+
+/*
+*/
+void COpenGLRenderer::getLineParameters(
+	float *x1, float *y1, float *x2, float *y2, // coordinates of the line
+	float *Cr, float *Cg, float *Cb, float *Br,
+	float w,
+	bool alphablend,
+	float *A,
+	float *tx, float *ty,     // core thinkness of a line
+	float *Rx, float *Ry,     // fading edge of a line
+	float *cx, float *cy      // cap of a line
+	)
+{
+	float t, R, f;
+	f = w - static_cast<int>(w);
+	*A = 1.0f;
+
+	if (alphablend)
+	{
+		*A = *Br;
+	}
+
+	// determine parameters t,R
+	if (w >= 0.0f && w < 1.0f) 
+	{
+		t = 0.05f; 
+		R = 0.48f + 0.32f * (f);
+
+		if (!alphablend) 
+		{
+			*Cr += 0.88f * (1.0f - f);
+			*Cg += 0.88f * (1.0f - f);
+			*Cb += 0.88f * (1.0f - f);
+			if (*Cr > 1.0f) *Cr = 1.0f;
+			if (*Cg > 1.0f) *Cg = 1.0f;
+			if (*Cb > 1.0f) *Cb = 1.0f;
+		}
+		else 
+		{
+			*A *= f;
+		}
+	}
+	else if (w >= 1.0f && w < 2.0f) 
+	{
+		t = 0.05f + (f) * 0.33f; 
+		R = 0.768f + 0.312f * (f);
+	}
+	else if (w >= 2.0f && w < 3.0f) 
+	{
+		t = 0.38f + (f) * 0.58f;
+		R = 1.08f;
+	}
+	else if (w >= 3.0f && w < 4.0f) 
+	{
+		t = 0.96f + (f) * 0.48f;
+		R = 1.08f;
+	}
+	else if (w >= 4.0f && w < 5.0f) 
+	{
+		t = 1.44f + (f) * 0.46f;
+		R = 1.08f;
+	}
+	else if (w >= 5.0f && w < 6.0f) 
+	{
+		t = 1.9f + (f) * 0.6f;
+		R = 1.08f;
+	}
+	else if (w >= 6.0f) 
+	{
+		float ff = w - 6.0f;
+		t = 2.5f + ff * 0.50f;
+		R = 1.08f;
+	}
+
+	// determine angle of the line to horizontal
+	*tx = 0;
+	*ty = 0; //core thinkness of a line
+	*Rx = 0;
+	*Ry = 0; //fading edge of a line
+	*cx = 0;
+	*cy = 0; //cap of a line
+	float ALW = 0.01f;
+	float dx = *x2 - *x1;
+	float dy = *y2 - *y1;
+
+	if (GET_ABS(dx) < ALW) 
+	{
+		//vertical
+		*tx = t; 
+		*ty = 0.0f;
+		*Rx = R; 
+		*Ry = 0.0f;
+
+		if (w > 0.0f && w <= 1.0f) 
+		{
+			*tx = 0.5f; 
+			*Rx = 0.0f;
+		}
+	}
+	else if (GET_ABS(dy) < ALW) 
+	{
+		//horizontal
+		*tx = 0.0f; 
+		*ty = t;
+		*Rx = 0.0f; 
+		*Ry = R;
+
+		if (w > 0.0f && w <= 1.0f) 
+		{
+			*ty = 0.5f; 
+			*Ry = 0.0f;
+		}
+	}
+	else 
+	{
+		if (w < 3.0f) 
+		{ //approximate to make things even faster
+			float m = dy / dx;
+
+			//and calculate tx,ty,Rx,Ry
+			if (m > -0.4142f && m <= 0.4142f) 
+			{
+				// -22.5< angle <= 22.5, approximate to 0 (degree)
+				*tx = t * 0.1f;
+				*ty = t;
+				*Rx = R * 0.6f;
+				*Ry = R;
+			}
+			else if (m > 0.4142f && m <= 2.4142f)
+			{
+				// 22.5< angle <= 67.5, approximate to 45 (degree)
+				*tx = t * -0.7071f;
+				*ty = t * 0.7071f;
+				*Rx = R * -0.7071f;
+				*Ry = R * 0.7071f;
+			}
+			else if (m > 2.4142f || m <= -2.4142f) 
+			{
+				// 67.5 < angle <=112.5, approximate to 90 (degree)
+				*tx = t;
+				*ty = t * 0.1f;
+				*Rx = R;
+				*Ry = R * 0.6f;
+			}
+			else if (m > -2.4142f && m < -0.4142f)
+			{
+				// 112.5 < angle < 157.5, approximate to 135 (degree)
+				*tx = t * 0.7071f;
+				*ty = t * 0.7071f;
+				*Rx = R * 0.7071f;
+				*Ry = R * 0.7071f;
+			}
+			else 
+			{
+				// error in determining angle
+				//printf( "error in determining angle: m=%.4f\n",m);
+			}
+		}
+		else 
+		{ //calculate to exact
+			dx = *y1 - *y2;
+			dy = *x2 - *x1;
+			float L = sqrtf((dx * dx) + (dy * dy));
+			dx /= L;
+			dy /= L;
+			*cx = -1.0f * (dy); 
+			*cy = dx;
+			*tx = t * (dx); 
+			*ty = t * (dy);
+			*Rx = R * (dx); 
+			*Ry = R * (dy);
+		}
+	}
+
+	*x1 += *cx * 0.5f; 
+	*y1 += *cy * 0.5f;
+	*x2 -= *cx * 0.5f; 
+	*y2 -= *cy * 0.5f;
+}
+
+//static inline double GET_ABS(double x) { return x>0 ? x : -x; }
+/*
+* this implementation uses vertex array (opengl 1.1)
+*   choose only 1 from vase_rend_draft_1.h and vase_rend_draft_2.h
+*   to your need. if you have no preference, just use vase_rend_draft_2.h
+*/
+/* this is the master line() function which features:
+* -premium quality anti-aliased line drawing
+* -smaller CPU overhead than other CPU rasterizing algorithms
+* -line thickness control
+* -line color control
+* -can choose to use alpha blend or not
+*
+* sample usage using alpha blending:
+*
+glEnable(GL_BLEND);
+glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+glMatrixMode(GL_PROJECTION);
+glPushMatrix();
+glLoadIdentity();
+glOrtho( 0,context_width,context_height,0,0.0f,100.0f);
+
+glEnableClientState(GL_VERTEX_ARRAY);
+glEnableClientState(GL_COLOR_ARRAY);
+line ( 10,100,100,300,		//coordinates
+1.2,			//thickness in px
+0.5, 0.0, 1.0, 1.0,	//line color RGBA
+0,0,			//not used
+true);			//enable alphablend
+
+//more line() or glDrawArrays() calls
+glDisableClientState(GL_VERTEX_ARRAY);
+glDisableClientState(GL_COLOR_ARRAY);
+
+//other drawing code...
+glPopMatrix();
+glDisable(GL_BLEND); //restore blending options
+*
+* and not using alpha blending (blend to background color):
+*
+glMatrixMode(GL_PROJECTION);
+glPushMatrix();
+glLoadIdentity();
+glOrtho( 0,context_width,context_height,0,0.0f,100.0f);
+
+glEnableClientState(GL_VERTEX_ARRAY);
+glEnableClientState(GL_COLOR_ARRAY);
+line ( 20,100,110,300,		//coordinates
+1.2,			//thickness in px
+0.5, 0.0, 1.0,		//line color *RGB*
+1.0, 1.0, 1.0,		//background color
+false);			//not using alphablend
+
+//more line() or glDrawArrays() calls
+glDisableClientState(GL_VERTEX_ARRAY);
+glDisableClientState(GL_COLOR_ARRAY);
+
+//other drawing code...
+glPopMatrix();
+*/
+
+/*
+void line(double x1, double y1, double x2, double y2, //coordinates of the line
+	float w,			//width/thickness of the line in pixel
+	float Cr, float Cg, float Cb,	//RGB color components
+	float Br, float Bg, float Bb,	//color of background when alphablend=false,
+									//  Br=alpha of color when alphablend=true
+	bool alphablend)		//use alpha blend or not
+{
+	double t; double R; double f = w - static_cast<int>(w);
+	float A;
+
+	if (alphablend)
+		A = Br;
+	else
+		A = 1.0f;
+
+	//determine parameters t,R
+	if (w >= 0.0 && w<1.0) {
+		t = 0.05; R = 0.48 + 0.32*f;
+		if (!alphablend) {
+			Cr += 0.88*(1 - f);
+			Cg += 0.88*(1 - f);
+			Cb += 0.88*(1 - f);
+			if (Cr>1.0) Cr = 1.0;
+			if (Cg>1.0) Cg = 1.0;
+			if (Cb>1.0) Cb = 1.0;
+		}
+		else {
+			A *= f;
+		}
+	}
+	else if (w >= 1.0 && w<2.0) {
+		t = 0.05 + f*0.33; R = 0.768 + 0.312*f;
+	}
+	else if (w >= 2.0 && w<3.0) {
+		t = 0.38 + f*0.58; R = 1.08;
+	}
+	else if (w >= 3.0 && w<4.0) {
+		t = 0.96 + f*0.48; R = 1.08;
+	}
+	else if (w >= 4.0 && w<5.0) {
+		t = 1.44 + f*0.46; R = 1.08;
+	}
+	else if (w >= 5.0 && w<6.0) {
+		t = 1.9 + f*0.6; R = 1.08;
+	}
+	else if (w >= 6.0) {
+		double ff = w - 6.0;
+		t = 2.5 + ff*0.50; R = 1.08;
+	}
+	//printf( "w=%f, f=%f, C=%.4f\n", w,f,C);
+
+	//determine angle of the line to horizontal
+	double tx = 0, ty = 0; //core thinkness of a line
+	double Rx = 0, Ry = 0; //fading edge of a line
+	double cx = 0, cy = 0; //cap of a line
+	double ALW = 0.01;
+	double dx = x2 - x1;
+	double dy = y2 - y1;
+	if (GET_ABS(dx) < ALW) {
+		//vertical
+		tx = t; ty = 0;
+		Rx = R; Ry = 0;
+		if (w>0.0 && w <= 1.0) {
+			tx = 0.5; Rx = 0.0;
+		}
+	}
+	else if (GET_ABS(dy) < ALW) {
+		//horizontal
+		tx = 0; ty = t;
+		Rx = 0; Ry = R;
+		if (w>0.0 && w <= 1.0) {
+			ty = 0.5; Ry = 0.0;
+		}
+	}
+	else {
+		if (w < 3) { //approximate to make things even faster
+			double m = dy / dx;
+			//and calculate tx,ty,Rx,Ry
+			if (m>-0.4142 && m <= 0.4142) {
+				// -22.5< angle <= 22.5, approximate to 0 (degree)
+				tx = t*0.1; ty = t;
+				Rx = R*0.6; Ry = R;
+			}
+			else if (m>0.4142 && m <= 2.4142) {
+				// 22.5< angle <= 67.5, approximate to 45 (degree)
+				tx = t*-0.7071; ty = t*0.7071;
+				Rx = R*-0.7071; Ry = R*0.7071;
+			}
+			else if (m>2.4142 || m <= -2.4142) {
+				// 67.5 < angle <=112.5, approximate to 90 (degree)
+				tx = t; ty = t*0.1;
+				Rx = R; Ry = R*0.6;
+			}
+			else if (m>-2.4142 && m<-0.4142) {
+				// 112.5 < angle < 157.5, approximate to 135 (degree)
+				tx = t*0.7071; ty = t*0.7071;
+				Rx = R*0.7071; Ry = R*0.7071;
+			}
+			else {
+				// error in determining angle
+				//printf( "error in determining angle: m=%.4f\n",m);
+			}
+		}
+		else { //calculate to exact
+			dx = y1 - y2;
+			dy = x2 - x1;
+			double L = sqrt(dx*dx + dy*dy);
+			dx /= L;
+			dy /= L;
+			cx = -dy; cy = dx;
+			tx = t*dx; ty = t*dy;
+			Rx = R*dx; Ry = R*dy;
+		}
+	}
+
+	x1 += cx*0.5; y1 += cy*0.5;
+	x2 -= cx*0.5; y2 -= cy*0.5;
+
+	//draw the line by triangle strip
+	float line_vertex[] =
+	{
+		x1 - tx - Rx - cx,   y1 - ty - Ry - cy, //fading edge1
+		x2 - tx - Rx + cx,   y2 - ty - Ry + cy,
+		x1 - tx - cx,        y1 - ty - cy,	  //core
+		x2 - tx + cx,        y2 - ty + cy,
+		x1 + tx - cx,        y1 + ty - cy,
+		x2 + tx + cx,        y2 + ty + cy,
+		x1 + tx + Rx - cx,   y1 + ty + Ry - cy, //fading edge2
+		x2 + tx + Rx + cx,   y2 + ty + Ry + cy
+	};
+
+	glVertexPointer(2, GL_FLOAT, 0, line_vertex);
+
+	if (!alphablend) {
+		float line_color[] =
+		{
+			Br,Bg,Bb,
+			Br,Bg,Bb,
+			Cr,Cg,Cb,
+			Cr,Cg,Cb,
+			Cr,Cg,Cb,
+			Cr,Cg,Cb,
+			Br,Bg,Bb,
+			Br,Bg,Bb
+		};
+		glColorPointer(3, GL_FLOAT, 0, line_color);
+	}
+	else {
+		float line_color[] =
+		{
+			Cr,Cg,Cb,0,
+			Cr,Cg,Cb,0,
+			Cr,Cg,Cb,A,
+			Cr,Cg,Cb,A,
+			Cr,Cg,Cb,A,
+			Cr,Cg,Cb,A,
+			Cr,Cg,Cb,0,
+			Cr,Cg,Cb,0
+		};
+		glColorPointer(4, GL_FLOAT, 0, line_color);
+	}
+
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 8);
+
+	//cap
+	if (w < 3) {
+		//do not draw cap
+	}
+	else {
+		//draw cap
+		float line_vertex[] =
+		{
+			x1 - tx - Rx - cx, y1 - ty - Ry - cy, //cap1
+			x1 - tx - Rx, y1 - ty - Ry,
+			x1 - tx - cx, y1 - ty - cy,
+			x1 + tx + Rx, y1 + ty + Ry,
+			x1 + tx - cx, y1 + ty - cy,
+			x1 + tx + Rx - cx, y1 + ty + Ry - cy,
+			x2 - tx - Rx + cx, y2 - ty - Ry + cy, //cap2
+			x2 - tx - Rx, y2 - ty - Ry,
+			x2 - tx + cx, y2 - ty + cy,
+			x2 + tx + Rx, y2 + ty + Ry,
+			x2 + tx + cx, y2 + ty + cy,
+			x2 + tx + Rx + cx, y2 + ty + Ry + cy
+		};
+
+		glVertexPointer(2, GL_FLOAT, 0, line_vertex);
+
+		if (!alphablend) {
+			float line_color[] =
+			{
+				Br,Bg,Bb, //cap1
+				Br,Bg,Bb,
+				Cr,Cg,Cb,
+				Br,Bg,Bb,
+				Cr,Cg,Cb,
+				Br,Bg,Bb,
+				Br,Bg,Bb, //cap2
+				Br,Bg,Bb,
+				Cr,Cg,Cb,
+				Br,Bg,Bb,
+				Cr,Cg,Cb,
+				Br,Bg,Bb
+			};
+			glColorPointer(3, GL_FLOAT, 0, line_color);
+		}
+		else {
+			float line_color[] =
+			{
+				Cr,Cg,Cb, 0, //cap1
+				Cr,Cg,Cb, 0,
+				Cr,Cg,Cb, A,
+				Cr,Cg,Cb, 0,
+				Cr,Cg,Cb, A,
+				Cr,Cg,Cb, 0,
+				Cr,Cg,Cb, 0, //cap2
+				Cr,Cg,Cb, 0,
+				Cr,Cg,Cb, A,
+				Cr,Cg,Cb, 0,
+				Cr,Cg,Cb, A,
+				Cr,Cg,Cb, 0
+			};
+			glColorPointer(4, GL_FLOAT, 0, line_color);
+		}
+
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, 6);
+		glDrawArrays(GL_TRIANGLE_STRIP, 6, 6);
+	}
+}*/

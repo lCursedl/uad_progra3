@@ -8,6 +8,7 @@
 #include <algorithm>
 using namespace std;
 
+#include "../Include/CVector3.h"
 #include "../Include/C3DModel.h"
 #include "../Include/C3DModel_Obj.h"
 
@@ -119,7 +120,7 @@ bool C3DModel_Obj::loadFromFile(const char * const filename)
 
 		if (readFileOk)
 		{
-			m_Initialized = true;
+			m_modelGeometryLoaded = true;
 
 			if (!m_modelHasNormals)
 			{
@@ -183,6 +184,8 @@ bool C3DModel_Obj::parseObjLine(std::string line, bool countOnly, int lineNumber
 
 	char *nextToken = NULL;
 	char *token = NULL;
+	char *token2 = nullptr;
+	char *nextToken2 = nullptr;
 
 	const char *delimiterToken = " \t";
 	const char *delimiterFace = "/";
@@ -193,8 +196,9 @@ bool C3DModel_Obj::parseObjLine(std::string line, bool countOnly, int lineNumber
 
 	std::vector<std::string> tokens;
 
-	std::string materialName;
+	//std::string materialName;
 	std::string materialFilename;
+	std::string originalLine = line;
 
 	token = strtok_s((char *)line.c_str(), delimiterToken, &nextToken);
 
@@ -249,8 +253,21 @@ bool C3DModel_Obj::parseObjLine(std::string line, bool countOnly, int lineNumber
 				{
 					// Check if this line is a quad or a triangle
 					std::string nextStrToken(nextToken);
+					int num_tokens = 0;
+
+					token2 = strtok_s(nextToken, delimiterToken, &nextToken2);
+					// If there are any tokens left
+					while (token2 != nullptr)
+					{
+						num_tokens++;
+						token2 = strtok_s(NULL, delimiterToken, &nextToken2);
+					}
 
 					m_numFaces++;
+				}
+				else
+				{
+					countOnly = false;
 				}
 			}
 			// Texture
@@ -263,7 +280,7 @@ bool C3DModel_Obj::parseObjLine(std::string line, bool countOnly, int lineNumber
 				// Unrecognized line
 				if (countOnly)
 				{
-					cout << "Ignoring line #" << lineNumber << ": " << line << endl;
+					cout << "Ignoring line #" << lineNumber << ": " << originalLine << endl;
 				}
 				unrecognizedLine = true;
 			}
@@ -296,7 +313,7 @@ bool C3DModel_Obj::parseObjLine(std::string line, bool countOnly, int lineNumber
 				if (currentToken != numExpectedTokens && !readingTexture)
 				{
 					cout << "Ignoring line, number of tokens doesn't match the expected." << endl;
-					cout << line.c_str() << endl;
+					cout << originalLine << endl;
 				}
 				else
 				{
@@ -424,12 +441,30 @@ bool C3DModel_Obj::parseObjLine(std::string line, bool countOnly, int lineNumber
 					} // reading face
 					else if (readingTexture)
 					{
-						if (readMtllib(tokens[0], materialName, materialFilename))
+						if (readMtllib(tokens[0]))
 						{
-							m_modelTextureFilename = new char[materialFilename.size() + 1];
-							memset(m_modelTextureFilename, 0, materialFilename.size() + 1);
-							memcpy(m_modelTextureFilename, materialFilename.c_str(), materialFilename.size());
-							m_modelHasTextures = true;
+							materialFilename = "";
+
+							for (int i = 0; i < (int)m_materialNames.size(); ++i)
+							{
+								std::string currMaterial = m_materialNames.at(i);
+								auto it = m_materialFilenames.find(currMaterial);
+
+								if (it != m_materialFilenames.end())
+								{
+									materialFilename = (it)->second;
+									break;
+								}
+							}
+							
+							if (!materialFilename.empty())
+							{
+								m_modelTextureFilename = new char[materialFilename.size() + 1];
+								memset(m_modelTextureFilename, 0, materialFilename.size() + 1);
+								memcpy(m_modelTextureFilename, materialFilename.c_str(), materialFilename.size());
+								m_modelHasTextures = true;
+							}
+
 							parsed = true;
 						}
 						else
@@ -448,7 +483,7 @@ bool C3DModel_Obj::parseObjLine(std::string line, bool countOnly, int lineNumber
 
 /* 
  */
-bool C3DModel_Obj::readMtllib(std::string mtlLibFilename, std::string &materialName, std::string &materialFilename)
+bool C3DModel_Obj::readMtllib(std::string mtlLibFilename)
 {
 	bool readTextureName = false;
 
@@ -459,10 +494,14 @@ bool C3DModel_Obj::readMtllib(std::string mtlLibFilename, std::string &materialN
 	const char *delimiterToken = " \t";
 	bool readingMaterialName = false;
 	bool readingMaterialFilename = false;
+	bool readingMaterialColor = false;
 	int numToken = 0;
+	std::string currentMaterialName;
+	float material_red, material_green, material_blue;
 
-	materialName.clear();
-	materialFilename.clear();
+	m_materialNames.clear();
+	m_materialFilenames.clear();
+	m_materialColors.clear();
 
 	infile.open(mtlLibFilename);
 
@@ -470,9 +509,13 @@ bool C3DModel_Obj::readMtllib(std::string mtlLibFilename, std::string &materialN
 	{
 		getline(infile, lineBuffer);
 
-		readingMaterialName = false;
+		readingMaterialName     = false;
 		readingMaterialFilename = false;
-		numToken = 0;
+		readingMaterialColor    = false;
+		material_red            = 0.0f;
+		material_green          = 0.0f;
+		material_blue           = 0.0f;
+		numToken                = 0;
 
 		token = strtok_s((char *)lineBuffer.c_str(), delimiterToken, &nextToken);
 		++numToken;
@@ -484,39 +527,79 @@ bool C3DModel_Obj::readMtllib(std::string mtlLibFilename, std::string &materialN
 			{
 				if (0 == strcmp(token, "newmtl"))
 				{
-					readingMaterialName = true;
+					readingMaterialName     = true;
+					readingMaterialColor    = false;
+					readingMaterialFilename = false;
 				}
 				else if (0 == strcmp(token, "map_Kd"))
 				{
+					readingMaterialName     = false;
+					readingMaterialColor    = false;
 					readingMaterialFilename = true;
+				}
+				else if (0 == strcmp(token, "Kd"))
+				{
+					readingMaterialName     = false;
+					readingMaterialColor    = true;
+					readingMaterialFilename = false;
 				}
 			}
 			else if (numToken == 2)
 			{
 				if (readingMaterialName)
 				{
-					materialName.append(token);
+					currentMaterialName = token;
+					m_materialNames.push_back(token);
 				}
-				else if (readingMaterialFilename)
+				else if (readingMaterialFilename && !currentMaterialName.empty())
 				{
-					materialFilename.append(token);
+					m_materialFilenames.insert(std::make_pair(currentMaterialName, token));
 					readTextureName = true;
 					break;
+				}
+				else if (readingMaterialColor)
+				{
+					material_red = (float)atof(token);
+
+					if (material_red < 0.0f || material_red > 1.0f)
+					{
+						material_red = 0.0f;
+					}
+				}
+			}
+			else if (numToken == 3)
+			{
+				if (readingMaterialColor)
+				{
+					material_green = (float)atof(token);
+
+					if (material_green < 0.0f || material_green > 1.0f)
+					{
+						material_green = 0.0f;
+					}
+				}
+			}
+			else if (numToken == 4)
+			{
+				if (readingMaterialColor && !currentMaterialName.empty())
+				{
+					material_blue = (float)atof(token);
+
+					if (material_blue < 0.0f || material_blue > 1.0f)
+					{
+						material_blue = 0.0f;
+					}
+
+					m_materialColors.insert(std::make_pair(currentMaterialName, CVector3(material_red, material_green, material_blue)));
 				}
 			}
 
 			token = strtok_s(nullptr, delimiterToken, &nextToken);
 			++numToken;
 		}
-
-		// For now, only read the first material
-		if (readTextureName)
-		{
-			break;
-		}
 	}
 
 	infile.close();
 
-	return readTextureName;
+	return (m_materialNames.size() > 0);
 }

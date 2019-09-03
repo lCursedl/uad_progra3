@@ -32,12 +32,6 @@ private:
 	//  Object rotation speed (degrees per second)
 	double m_rotationSpeed;
 
-	// Shader program for the current model
-	unsigned int m_currentModelShaderId;
-
-	// Texture object ID for the current model
-	unsigned int m_currentModelTextureObject;
-
 protected:
 	// Method to initialize the menu
 	bool initializeMenu();

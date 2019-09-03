@@ -11,6 +11,7 @@ using namespace std;
 #include "../Include/CAppObjLoader.h"
 #include "../Include/C3DModel.h"
 #include "../Include/CWideStringHelper.h"
+#include "../Include/CTextureLoader.h"
 
 /* */
 CAppObjLoader::CAppObjLoader() :
@@ -22,7 +23,7 @@ CAppObjLoader::CAppObjLoader() :
 /* */
 CAppObjLoader::CAppObjLoader(int window_width, int window_height) :
 	CApp(window_width, window_height),
-	m_p3DModel(NULL),
+	m_p3DModel(nullptr),
 	m_currentDeltaTime{ 0.0 },
 	m_objectRotation{ 0.0 },
 	m_objectPosition{ 0.0f, 0.0f, 0.0f },
@@ -58,9 +59,6 @@ void CAppObjLoader::run()
 
 			// Set initial clear screen color
 			getOpenGLRenderer()->setClearScreenColor(0.15f, 0.75f, 0.75f);
-			// Initialize window width/height in the renderer
-			//getOpenGLRenderer()->setWindowWidth(getGameWindow()->getWidth());
-			//getOpenGLRenderer()->setWindowHeight(getGameWindow()->getHeight());
 
 			// Create our menu (add all menu items)
 			if (!initializeMenu())
@@ -80,26 +78,18 @@ bool CAppObjLoader::initializeMenu()
 {
 	cout << "CAppCubeTest::initializeMenu()" << endl;
 
-	std::wstring wresourceFilenameVS;
-	std::wstring wresourceFilenameFS;
 	std::wstring wresourceFilenameTexture;
-	std::string resourceFilenameVS;
-	std::string resourceFilenameFS;
 	std::string resourceFilenameTexture;
 
 	// If resource files cannot be found, return
-	if (!CWideStringHelper::GetResourceFullPath(VERTEX_SHADER_MENU, wresourceFilenameVS, resourceFilenameVS) ||
-		!CWideStringHelper::GetResourceFullPath(FRAGMENT_SHADER_MENU, wresourceFilenameFS, resourceFilenameFS) ||
-		!CWideStringHelper::GetResourceFullPath(MENU_TEXTURE_FILE, wresourceFilenameTexture, resourceFilenameTexture))
+	if (!CWideStringHelper::GetResourceFullPath(MENU_TEXTURE_FILE, wresourceFilenameTexture, resourceFilenameTexture))
 	{
 		cout << "ERROR: Unable to find one or more resources: " << endl;
-		cout << "  " << VERTEX_SHADER_MENU << endl;
-		cout << "  " << FRAGMENT_SHADER_MENU << endl;
 		cout << "  " << MENU_TEXTURE_FILE << endl;
 		return false;
 	}
 
-	if (getMenu() != NULL)
+	if (getMenu() != nullptr)
 	{
 		CGameMenu *const menu = getMenu();
 
@@ -114,12 +104,12 @@ bool CAppObjLoader::initializeMenu()
 		float deltaY = 0.25f;
 		float UV[8];
 
+		menuShaderProgramId = getOpenGLRenderer()->getShaderProgramID(SHADER_PROGRAM_MENU);
+
 		// Create a shader program to use for the menu
-		if (!getOpenGLRenderer()->createShaderProgram(
-			&menuShaderProgramId,
-			resourceFilenameVS.c_str(),
-			resourceFilenameFS.c_str()))
+		if (menuShaderProgramId == 0)
 		{
+			cout << "ERROR: Unable to load menu shader program" << endl;
 			return false;
 		}
 
@@ -127,7 +117,7 @@ bool CAppObjLoader::initializeMenu()
 		menu->setShaderProgramId(menuShaderProgramId);
 
 		// Read texture file and generate an OpenGL texture object
-		if (loadTexture(resourceFilenameTexture.c_str(), &textureObjectId))
+		if (CTextureLoader::loadTexture(resourceFilenameTexture.c_str(), &textureObjectId, getOpenGLRenderer()))
 		{
 			// Set the generated texture object in the menu object
 			menu->setTextureObjectId(textureObjectId);
@@ -234,7 +224,7 @@ void CAppObjLoader::render()
 	objPos2.setValues(m_objectPosition.getX() + 2.5f, m_objectPosition.getY(), m_objectPosition.getZ());
 
 	// If menu is active, render menu
-	if (menu != NULL && menu->isInitialized() && menu->isActive())
+	if (menu != nullptr && menu->isInitialized() && menu->isActive())
 	{
 		menu->render(getOpenGLRenderer());
 	}
@@ -244,7 +234,7 @@ void CAppObjLoader::render()
 		// Colors are in the 0..1 range, if you want to use RGB, use (R/255, G/255, G/255)
 		float color[3] = { 1.0f, 1.0f, 1.0f };
 
-		if (m_p3DModel != NULL && m_p3DModel->isInitialized())
+		if (m_p3DModel != nullptr && m_p3DModel->isGeometryLoaded() && m_p3DModel->getGraphicsMemoryObjectId() > 0)
 		{
 			// convert total degrees rotated to radians;
 			double totalDegreesRotatedRadians = m_objectRotation * 3.1459 / 180.0;
@@ -252,10 +242,14 @@ void CAppObjLoader::render()
 			// Get a matrix that has both the object rotation and translation
 			MathHelper::Matrix4 modelMatrix = MathHelper::SimpleModelMatrixRotationTranslation((float)totalDegreesRotatedRadians, m_objectPosition);
 
+			unsigned int modelShader = m_p3DModel->getShaderProgramId();
+			unsigned int modelVAO = m_p3DModel->getGraphicsMemoryObjectId();
+			unsigned int modelTexture = m_p3DModel->getTextureObjectId();
+			
 			getOpenGLRenderer()->renderObject(
-				m_p3DModel->getShaderProgramId(),
-				m_p3DModel->getGraphicsMemoryObjectId(),
-				m_p3DModel->getTextureObjectId(),
+				&modelShader,
+				&modelVAO,
+				&modelTexture,
 				m_p3DModel->getNumFaces(),
 				color,
 				&modelMatrix,
@@ -269,127 +263,65 @@ void CAppObjLoader::render()
 /* */
 bool CAppObjLoader::load3DModel(const char * const filename)
 {
-	std::wstring wresourceFilenameVS;
-	std::wstring wresourceFilenameFS;
-	std::string resourceFilenameVS;
-	std::string resourceFilenameFS;
-
-	char *vertexShaderToLoad = VERTEX_SHADER_3D_OBJECT;
-	char *fragmentShaderToLoad = FRAGMENT_SHADER_3D_OBJECT;
-
+	unsigned int modelVertexArrayObject = 0;
+	
 	// Unload any current 3D model
 	unloadCurrent3DModel();
 
 	// Create new 3D object
-	m_p3DModel = C3DModel::load(filename);
+	m_p3DModel = C3DModel::load(filename, getOpenGLRenderer());
 
 	if (m_p3DModel == nullptr)
 	{
 		cout << "ERROR: Unable to read model from file" << endl;
 		return false;
 	}
-
-	// Load object from file
-	bool loaded = m_p3DModel->isInitialized();
-
-	if (loaded)
+	else if (!m_p3DModel->isGeometryLoaded())
 	{
-		// By default, shaders to be loaded are for non-textured objects, but if the model has a valid texture filename and UVs, 
-		// load the appropriate shader instead 
-		if (m_p3DModel->hasUVs() && m_p3DModel->hasTextures())
-		{
-			// Switch shaders to textured object ones
-			vertexShaderToLoad = VERTEX_SHADER_TEXTURED_3D_OBJECT;
-			fragmentShaderToLoad = FRAGMENT_SHADER_TEXTURED_3D_OBJECT;
-
-			unsigned int newTextureID = 0;
-
-			// LOAD TEXTURE AND ALSO CREATE TEXTURE OBJECT
-			if (loadTexture(m_p3DModel->getTextureFilename(), &newTextureID))
-			{
-				m_p3DModel->setTextureObjectId(newTextureID);
-			}
-			else
-			{
-				return false;
-			}
-		}
-
-		// TO-DO (IMPROVMENT): LOAD ALL POSSIBLE SHADERS FOR 3D OBJECT UP FRONT AND THEN JUST SWITCH THE ACTIVE ONE
-
-		// If resource files cannot be found, return
-		if (!CWideStringHelper::GetResourceFullPath(vertexShaderToLoad, wresourceFilenameVS, resourceFilenameVS) ||
-			!CWideStringHelper::GetResourceFullPath(fragmentShaderToLoad, wresourceFilenameFS, resourceFilenameFS))
-		{
-			cout << "ERROR: Unable to find one or more resources: " << endl;
-			cout << "  " << vertexShaderToLoad << endl;
-			cout << "  " << fragmentShaderToLoad << endl;
-
-			return false;
-		}
-
-		// Create a shader program for this object
-		getOpenGLRenderer()->createShaderProgram(
-			&m_currentModelShaderId,
-			resourceFilenameVS.c_str(),
-			resourceFilenameFS.c_str());
-
-		// Save the shader program ID in the model as well
-		m_p3DModel->setShaderProgramId(m_currentModelShaderId);
-
-		// Allocate graphics memory for object
-		loaded = getOpenGLRenderer()->allocateGraphicsMemoryForObject(
-			m_p3DModel->getShaderProgramId(),
-			m_p3DModel->getGraphicsMemoryObjectId(),
-			m_p3DModel->getModelVertices(),
-			m_p3DModel->getNumVertices(),
-			m_p3DModel->getModelNormals(),
-			m_p3DModel->getNumNormals(),
-			m_p3DModel->getModelUVCoords(),
-			m_p3DModel->getNumUVCoords(),
-			m_p3DModel->getModelVertexIndices(),
-			m_p3DModel->getNumFaces(),
-			m_p3DModel->getModelNormalIndices(),
-			((m_p3DModel) ? (m_p3DModel->getNumFaces()) : 0),
-			m_p3DModel->getModelUVCoordIndices(),
-			((m_p3DModel) ? (m_p3DModel->getNumFaces()) : 0)
-		);
-
-		// If error ocurred, cleanup memory
-		if (!loaded)
-		{
-			unloadCurrent3DModel();
-		}
+		cout << "ERROR: Unable to read model geometry." << endl;
+		unloadCurrent3DModel();
+		return false;
+	}
+	else if (m_p3DModel->getGraphicsMemoryObjectId() == 0)
+	{
+		cout << "ERROR: Unable to save geometry to graphics card." << endl;
+		unloadCurrent3DModel();
+		return false;
 	}
 
-	return loaded;
+	// 
+	return (m_p3DModel->getGraphicsMemoryObjectId() > 0); 
 }
 
 /* */
 void CAppObjLoader::unloadCurrent3DModel()
 {
-	if (m_p3DModel != NULL)
+	if (m_p3DModel != nullptr)
 	{
 		// Free up graphics memory
+		unsigned int vaoID = m_p3DModel->getGraphicsMemoryObjectId();
 		getOpenGLRenderer()->freeGraphicsMemoryForObject(
-			m_p3DModel->getGraphicsMemoryObjectId()
+			&vaoID
 		);
 
 		// Free up texture object memory
 		if (m_p3DModel->getTextureObjectId() > 0)
 		{
-			getOpenGLRenderer()->deleteTexture(m_p3DModel->getTextureObjectId());
+			unsigned int texID = m_p3DModel->getTextureObjectId();
+			getOpenGLRenderer()->deleteTexture(&texID);
 		}
 
 		// Delete 3D object
 		delete m_p3DModel;
-		m_p3DModel = NULL;
+		m_p3DModel = nullptr;
 	}
 }
 
 /* */
 void CAppObjLoader::onF2(int mods)
 {
+	setMenuActive(true);
+	
 	std::wstring wideStringBuffer = L"";
 	wideStringBuffer.resize(MAX_PATH);
 
@@ -413,6 +345,10 @@ void CAppObjLoader::onF2(int mods)
 		if (!load3DModel(multibyteString.c_str()))
 		{
 			cout << "Unable to load 3D model" << endl;
+		}
+		else
+		{
+			setMenuActive(false);
 		}
 	}
 }
@@ -450,16 +386,16 @@ void CAppObjLoader::onMouseMove(float deltaX, float deltaY)
 /* */
 void CAppObjLoader::moveCamera(float direction)
 {
-	if (getOpenGLRenderer() != NULL)
+	if (getOpenGLRenderer() != nullptr)
 	{
-		getOpenGLRenderer()->moveCamera(direction);
+		getOpenGLRenderer()->simpleCameraZoom(direction);
 	}
 }
 
 /* */
 void CAppObjLoader::executeMenuAction()
 {
-	if (getMenu() != NULL)
+	if (getMenu() != nullptr)
 	{
 		int option = getMenu()->getSelectedMenuItemNumber();
 
@@ -473,7 +409,7 @@ void CAppObjLoader::executeMenuAction()
 			cout << "<MENU OPTION NOT IMPLEMENTED>" << endl;
 			break;
 		case 3:
-			if (getGameWindow() != NULL)
+			if (getGameWindow() != nullptr)
 			{
 				getGameWindow()->requestWindowClose();
 			}

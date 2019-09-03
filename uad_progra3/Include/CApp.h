@@ -6,6 +6,7 @@
 #include "CGameWindow.h"
 #include "CGameMenu.h"
 #include "COpenGLRenderer.h"
+#include "CLight.h"
 
 #define KEY_MOD_SHIFT     0x0001
 #define KEY_MOD_CONTROL   0x0002
@@ -23,6 +24,7 @@ private:
 	CGameWindow     *m_Window;         // Pointer to our CGameWindow object
 	CGameMenu       *m_Menu;           // Pointer to our CMenu object
 	COpenGLRenderer *m_OpenGLRenderer; // Pointer to our OpenGL renderer object
+	CLight          *m_DefaultLight;   // Default light
 	bool m_Paused;                     // Is the app paused?  (i,e: window minimized)
 	bool isWindowInitialized() const;  // Is the CGameWindow object initialized ?
 	
@@ -78,8 +80,6 @@ public:
 protected:
 	virtual bool initializeMenu() = 0;
 
-	// Helper method to load a TGA texture
-	bool loadTexture(const char *filename, unsigned int *newTextureID);
 };
 
 #endif // !CAPP_H

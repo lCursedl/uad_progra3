@@ -6,6 +6,9 @@
 #include <string>
 using namespace std;
 
+#include "CVector3.h"
+#include "COpenGLRenderer.h"
+
 // ========================================================================================================================================
 // Class that represents a 3D Model
 // 
@@ -36,11 +39,14 @@ protected:
 
 	int m_numVertices, m_numNormals, m_numUVCoords, m_numFaces;       // Total number of vertices, normals, UV coords, and faces in this model
 
-	bool m_Initialized;                                               // Does this C3DModel object contain valid data? (loaded from file)
+	bool m_modelGeometryLoaded;                                               // Does this C3DModel object contain valid data? (loaded from file)
 	bool m_modelHasNormals;											  // Flag to determine if this model has normals
 	bool m_modelHasUVs;												  // Flag to determine if this model has UVs
 	bool m_modelHasTextures;										  // Flag to determine if this model has a valid texture filename
 	char *m_modelTextureFilename;
+	std::vector<std::string>           m_materialNames;
+	std::map<std::string, std::string> m_materialFilenames;
+	std::map<std::string, CVector3>    m_materialColors;
 
 	virtual void reset();                                             // Cleanup any allocated memory
 	virtual bool loadFromFile(const char * const filename) = 0;
@@ -51,17 +57,17 @@ public:
 	C3DModel();
 	virtual ~C3DModel();
 	
-	static C3DModel* load(const char * const filename);
-	bool isInitialized() const { return m_Initialized; }
-	void setInitialized(bool i) { m_Initialized = i; }
+	static C3DModel* load(const char * const filename, COpenGLRenderer * const shp_OpenGLRenderer);
+	bool isGeometryLoaded() const { return m_modelGeometryLoaded; }
+	void setInitialized(bool i) { m_modelGeometryLoaded = i; }
 
-	unsigned int *getGraphicsMemoryObjectId() { return &m_graphicsMemoryObjectId; }
+	unsigned int getGraphicsMemoryObjectId() { return m_graphicsMemoryObjectId; }
 	void setGraphicsMemoryObjectId(unsigned int id) { m_graphicsMemoryObjectId = id; }
 
-	unsigned int *getShaderProgramId() { return &m_shaderProgramId; }
+	unsigned int getShaderProgramId() { return m_shaderProgramId; }
 	void setShaderProgramId(unsigned int id) { m_shaderProgramId = id; }
 
-	unsigned int *getTextureObjectId() { return &m_textureObjectId; }
+	unsigned int getTextureObjectId() { return m_textureObjectId; }
 	void setTextureObjectId(unsigned int id) { m_textureObjectId = id; }
 
 	int getNumVertices() const { return m_numVertices; }

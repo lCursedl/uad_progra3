@@ -1,5 +1,8 @@
 #pragma once
 
+#ifndef _OPENGL_RENDERER_H
+#define _OPENGL_RENDERER_H
+
 // include glad *before* glfw
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -15,6 +18,8 @@ using namespace std;
 #define MIN_CAMERA_DISTANCE 5.0f
 #define MAX_CAMERA_DISTANCE 1000.0f
 #define MOVE_CAMERA_DELTA 1.5f
+#define RENDERER_DEFAULT_FB_WIDTH 800
+#define RENDERER_DEFAULT_FB_HEIGHT 600
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 *
@@ -43,16 +48,41 @@ public:
 		TRIANGLE_FAN
 	};
 
+	enum OPENGL_BLEND_MODE
+	{
+		BLEND_ZERO = 0, 
+		BLEND_ONE, 
+		BLEND_SRC_COLOR, 
+		BLEND_ONE_MINUS_SRC_COLOR, 
+		BLEND_DST_COLOR, 
+		BLEND_ONE_MINUS_DST_COLOR, 
+		BLEND_SRC_ALPHA, 
+		BLEND_ONE_MINUS_SRC_ALPHA, 
+		BLEND_DST_ALPHA, 
+		BLEND_ONE_MINUS_DST_ALPHA,
+		BLEND_CONSTANT_COLOR, 
+		BLEND_ONE_MINUS_CONSTANT_COLOR, 
+		BLEND_CONSTANT_ALPHA, 
+		BLEND_ONE_MINUS_CONSTANT_ALPHA
+	};
+
 private:
 	int m_frameBufferWidth;
 	int m_frameBufferHeight;
 	bool m_OpenGLError;
 
-	std::map<int, COpenGLShaderProgram*> m_shaderProgramWrappers;
+	std::vector<std::string> m_knownShaderProgramNames;
+	std::vector<std::string> m_knownShaderProgramVertexShaders;
+	std::vector<std::string> m_knownShaderProgramFragmentShaders;
+	std::map<std::string, unsigned int> m_knownShaders;
+	std::map<unsigned int, COpenGLShaderProgram*> m_shaderProgramWrappers;
 	std::vector<std::string> m_expectedUniformsInShader;
 	std::vector<std::string> m_expectedAttributesInShader;
 
 	float m_cameraDistance; // Distance from camera view point to target point, expressed in OpenGL units
+
+	const unsigned int *m_activeShaderProgram;
+	const COpenGLShaderProgram *m_activeShaderProgramWrapper;
 
 	// TEST OBJECT VARS
 	// When no 3D object is loaded, we display a test object (spinning cube)
@@ -89,9 +119,6 @@ private:
 	);
 
 	//
-	bool useShaderProgram(const unsigned int * const shaderProgramId) const;
-
-	//
 	GLuint generateVertexArrayObjectID() const;
 
 	//
@@ -112,10 +139,34 @@ private:
 	//
 	bool deleteShaderProgram(unsigned int *shaderProgramId);
 
+	//
+	GLenum translateBlendMode(OPENGL_BLEND_MODE factor);
+
+	//
+	float GET_ABS(float x) { return x > 0.0f ? x : -x; }
+
+	//
+	void getLineParameters(
+		float *x1, float *y1, float *x2, float *y2, // coordinates of the line
+		float *Cr, float *Cg, float *Cb, float *Br,
+		float w,
+		bool alphablend,
+		float *A,
+		float *tx, float *ty,     // core thinkness of a line
+		float *Rx, float *Ry,     // fading edge of a line
+		float *cx, float *cy      // cap of a line
+	);
+
 public:
 	// Constructor and Destructor
 	COpenGLRenderer();
 	~COpenGLRenderer();
+
+	// =================================================================
+	// Initialize known shaders
+	// Must be called after creating the window
+	// =================================================================
+	bool initialize();
 
 	// =================================================================
 	// Allocates graphics memory for a given 3D object 
@@ -162,9 +213,13 @@ public:
 
 	//
 	bool createShaderProgram(
+		std::string shaderProgramName,
 		unsigned int *shaderProgramId,
 		const char *vertexShader,
 		const char *fragmentShader);
+
+	//
+	unsigned int getShaderProgramID(std::string shaderProgramName);
 
 	//
 	bool createTextureObject(
@@ -204,6 +259,34 @@ public:
 		MathHelper::Matrix4 *projectionMatrix,
 		EPRIMITIVE_MODE mode = TRIANGLES,
 		bool drawIndexedPrimitives = false);
+
+	// 
+	bool renderObjectNew(
+		int numFaces,
+		MathHelper::Matrix4 *modelMatrix,
+		EPRIMITIVE_MODE mode = TRIANGLES,
+		bool drawIndexedPrimitives = false);
+
+	//
+	bool useShaderProgram(const unsigned int * const shaderProgramId);
+
+	//
+	void setCurrentVertexArrayObjectID(unsigned int *vertexArrayObjectId);
+
+	//
+	void setCurrentShaderObjectColor(GLfloat *objectColor);
+
+	//
+	void setCurrentShaderViewMatrix(MathHelper::Matrix4 *viewMatrix);
+
+	// 
+	void setCurrentShaderProjectionMatrix(MathHelper::Matrix4 *projectionMatrix);
+
+	//
+	void setCurrentShaderTexture(unsigned int *textureObjectId);
+
+	//
+	void setCurrentShaderAmbientLight(GLfloat red, GLfloat green, GLfloat blue, GLfloat ambientIntensity);
 
 	/*
 	 * With vertex attributes, each run of the vertex shader will cause GLSL to retrieve the next set of vertex attributes that belong to the current vertex. 
@@ -289,7 +372,7 @@ If we now were to render the quads again using glDrawArraysInstanced we'd get th
 	void setCameraDistance(float d) { m_cameraDistance = d; }
 
 	//
-	void moveCamera(float direction);
+	void simpleCameraZoom(float direction);
 
 	//
 	void enableDepthTest() { glEnable(GL_DEPTH_TEST); }
@@ -319,6 +402,37 @@ If we now were to render the quads again using glDrawArraysInstanced we'd get th
 	void setFillPolygonMode() { glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); }
 
 	//
+	void startProfiling();
+
+	//
+	void endProfiling();
+
+	//
+	GLuint64 getProfilingTime();
+
+	//
+	void enableBlending(bool enable) { if (enable)glEnable(GL_BLEND); else glDisable(GL_BLEND); }
+
+	//
+	void setBlendingMode(OPENGL_BLEND_MODE sourceFactor, OPENGL_BLEND_MODE destinationFactor);
+
+	// Based off of
+	// https://www.codeproject.com/Articles/199525/Drawing-nearly-perfect-D-line-segments-in-OpenGL
+	// http://artgrammer.blogspot.com/2011/05/drawing-nearly-perfect-2d-line-segments.html
+	// http://www.codeproject.com/KB/openGL/gllinedraw.aspx
+	// By.Chris Tsang.
+	//
+	void allocateGraphicsMemoryForLines(
+		const unsigned int * const shaderProgramId,
+		unsigned int *vertexArrayObjectID,
+		GLfloat *lineVertices, int numLines,    // Coordinates (x1, y1, z1), (x2, y2, z2) of each line. 6 floats per line
+		float lineWidth,                        // Width/thickness of the line in pixel
+		float red, float green, float blue,     // RGB color components
+		float backR, float backG, float backB,  // Color of background when alphablend=false,  Br=alpha of color when alphablend=true
+		float cAlpha,                           // Alpha 
+		bool alphablend);                       // Alpha blend?
+
+	//
 	static void APIENTRY debugOutputCallback(
 		GLenum source, 
 		GLenum type, 
@@ -327,6 +441,9 @@ If we now were to render the quads again using glDrawArraysInstanced we'd get th
 		GLsizei length, 
 		const GLchar *message, 
 		const GLvoid *userParam);
+
 };
+
+#endif // !_OPENGL_RENDERER_H
 
 // https://www.khronos.org/opengl/wiki/Common_Mistakes

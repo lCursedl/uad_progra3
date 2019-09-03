@@ -6,7 +6,6 @@
 #include <iostream>
 using namespace std;
 
-#include "Include/CGameWindow.h"
 #include "Include/CApp.h"
 #include "Include/CAppCubeTest.h"
 #include "Include/CAppObjLoader.h"

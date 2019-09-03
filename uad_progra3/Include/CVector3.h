@@ -24,6 +24,9 @@ public:
 	CVector3 operator-(const CVector3 & other);
 	CVector3& operator-=(const CVector3 &other);
 
+	CVector3 operator*(float delta);
+	CVector3& operator*=(float delta);
+
 	CVector3 cross(const CVector3 & other);
 	float dot(const CVector3 & other);
 	

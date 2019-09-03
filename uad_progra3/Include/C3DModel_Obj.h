@@ -18,10 +18,7 @@ private:
 		std::string line,								  
 		bool countOnly, 
 		int lineNumber); 
-	bool readMtllib(													// Read mtllib
-		std::string mtlLibFilename,
-		std::string &materialName, 
-		std::string &materialFilename);	 
+	bool readMtllib(std::string mtlLibFilename);	 
 
 protected:
 	void reset();														// Cleanup any allocated memory
