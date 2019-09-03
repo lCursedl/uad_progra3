@@ -15,7 +15,7 @@ CApp::CApp():
 /* */
 CApp::CApp(int window_width, int window_height)
 {
-	cout << "Constructor: CApp(int window_width, int window_height)" << endl;
+	cout << "Constructor: CApp(int window_width, int window_height)" << endl; 
 	
 	// Create OpenGLRenderer Object
 	m_OpenGLRenderer = new COpenGLRenderer();
