@@ -7,8 +7,10 @@
 #define CAPP_PROGRA3_EMPTYAPP_WINDOW_TITLE      "Empty app - OpenGL + GLFW Library initialization"
 #define CAPP_PROGRA3_CUBES_WINDOW_TITLE         "Cubes app"
 #define CAPP_PROGRA3_OBJ_LOADER_WINDOW_TITLE    ".OBJ Loader app"
+#define CAPP_PROGRA3_FBX_LOADER_WINDOW_TITLE	".FBX Loader app"
 #define CAPP_PROGRA3_GEOMETRIC_WINDOW_TITLE     "Geometric shapes app"
 #define CAPP_PROGRA3_HEXGRID_WINDOW_TITLE       "HexGrid app"
+#define CAPP_PROGRA3_CUBE						"Cube app"
 
 // SHADER FILENAMES
 #define SHADER_PROGRAM_COLOR_CUBE               "COLOR_CUBE_SHADER"

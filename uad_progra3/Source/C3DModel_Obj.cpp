@@ -147,7 +147,16 @@ bool C3DModel_Obj::readObjFile(const char * filename, bool countOnly)
 
 	infile.open(filename);
 
-	while (!infile.eof())
+	if ((infile.rdstate() & std::ifstream::failbit) != 0)
+	{
+		std::cout << "Error opening file: " << filename << std::endl;
+		return false;
+	}
+	
+	infile.seekg(0, ios_base::beg);
+	infile.clear();
+
+	while (infile.good())
 	{
 		getline(infile, lineBuffer);
 		lineNumber++;
