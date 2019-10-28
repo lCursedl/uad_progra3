@@ -156,6 +156,18 @@
     <ClInclude Include="Include\C3DModel_FBX.h">
       <Filter>Header Files\Model</Filter>
     </ClInclude>
+    <ClInclude Include="Include\CAppHexGrid.h">
+      <Filter>Header Files\App</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\CHexCell.h">
+      <Filter>Header Files\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\CHexGrid.h">
+      <Filter>Header Files\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\CWorld.h">
+      <Filter>Header Files\Model</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -231,6 +243,18 @@
       <Filter>Source Files\App</Filter>
     </ClCompile>
     <ClCompile Include="Source\C3DModel_FBX.cpp">
+      <Filter>Source Files\Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\CAppHexGrid.cpp">
+      <Filter>Source Files\App</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\CHexCell.cpp">
+      <Filter>Source Files\Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\CHexGrid.cpp">
+      <Filter>Source Files\Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\CWorld.cpp">
       <Filter>Source Files\Model</Filter>
     </ClCompile>
   </ItemGroup>

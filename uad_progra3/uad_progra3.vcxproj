@@ -172,6 +172,7 @@
     <ClInclude Include="Include\CAppCubeTest.h" />
     <ClInclude Include="Include\CAppEmpty.h" />
     <ClInclude Include="Include\CAppGeometricFigures.h" />
+    <ClInclude Include="Include\CAppHexGrid.h" />
     <ClInclude Include="Include\CAppMyCube.h" />
     <ClInclude Include="Include\CAppObjLoader.h" />
     <ClInclude Include="Include\CAppSphere.h" />
@@ -183,12 +184,15 @@
     <ClInclude Include="Include\CGameMenu.h" />
     <ClInclude Include="Include\CGameMenuItem.h" />
     <ClInclude Include="Include\CGameWindow.h" />
+    <ClInclude Include="Include\CHexCell.h" />
+    <ClInclude Include="Include\CHexGrid.h" />
     <ClInclude Include="Include\CLight.h" />
     <ClInclude Include="Include\COpenGLRenderer.h" />
     <ClInclude Include="Include\COpenGLShaderProgram.h" />
     <ClInclude Include="Include\CTextureLoader.h" />
     <ClInclude Include="Include\CVector3.h" />
     <ClInclude Include="Include\CWideStringHelper.h" />
+    <ClInclude Include="Include\CWorld.h" />
     <ClInclude Include="Include\Globals.h" />
     <ClInclude Include="Include\LoadShaders.h" />
     <ClInclude Include="Include\LoadTGA.h" />
@@ -210,6 +214,7 @@
     <ClCompile Include="Source\CAppCubeTest.cpp" />
     <ClCompile Include="Source\CAppEmpty.cpp" />
     <ClCompile Include="Source\CAppGeometricFigures.cpp" />
+    <ClCompile Include="Source\CAppHexGrid.cpp" />
     <ClCompile Include="Source\CAppMyCube.cpp" />
     <ClCompile Include="Source\CAppObjLoader.cpp" />
     <ClCompile Include="Source\CAppSphere.cpp" />
@@ -218,11 +223,14 @@
     <ClCompile Include="Source\CGameMenu.cpp" />
     <ClCompile Include="Source\CGameMenuItem.cpp" />
     <ClCompile Include="Source\CGameWindow.cpp" />
+    <ClCompile Include="Source\CHexCell.cpp" />
+    <ClCompile Include="Source\CHexGrid.cpp" />
     <ClCompile Include="Source\CLight.cpp" />
     <ClCompile Include="Source\COpenGLRenderer.cpp" />
     <ClCompile Include="Source\COpenGLShaderProgram.cpp" />
     <ClCompile Include="Source\CTextureLoader.cpp" />
     <ClCompile Include="Source\CVector3.cpp" />
+    <ClCompile Include="Source\CWorld.cpp" />
     <ClCompile Include="Source\LoadShaders.cpp" />
     <ClCompile Include="Source\LoadTGA.cpp" />
     <ClCompile Include="stdafx.cpp" />

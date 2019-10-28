@@ -108,6 +108,8 @@ void CAppGeometricFigures::initialize()
 
 	m_initialized = true;
 	createPyramidGeometry();
+	createHexGeometry();
+	
 }
 
 /* */
@@ -194,12 +196,12 @@ void CAppGeometricFigures::render()
 		// Colors are in the 0..1 range, if you want to use RGB, use (R/255, G/255, G/255)
 		float color[3] = { 1.0f, 1.0f, 1.0f };
 		unsigned int noTexture = 0;
-	
+
 		// convert total degrees rotated to radians;
 		double totalDegreesRotatedRadians = m_objectRotation * 3.1459 / 180.0;
 
 		// Get a matrix that has both the object rotation and translation
-		MathHelper::Matrix4 modelMatrix = MathHelper::SimpleModelMatrixRotationTranslation((float)totalDegreesRotatedRadians, m_objectPosition);
+		MathHelper::Matrix4 modelMatrix = MathHelper::SimpleModelMatrixRotationTranslation((float)totalDegreesRotatedRadians, CVector3(-2.0f, 0.0f, 0.0f));
 
 		if (m_pyramidVertexArrayObject > 0 && m_numFacesPyramid > 0)
 		{
@@ -230,9 +232,24 @@ void CAppGeometricFigures::render()
 				COpenGLRenderer::EPRIMITIVE_MODE::TRIANGLES,
 				false
 			);
+			// =================================
 		}
+		if (numFacesCell > 0 && m_hexVertexArrayObject > 0)
+		{
+			CVector3 pos3{ 0.0f, 0.0f, 0.0f };
+			MathHelper::Matrix4 modelMatrix3 = MathHelper::SimpleModelMatrixRotationTranslation((float)totalDegreesRotatedRadians, pos3);
 
-		// =================================
+			getOpenGLRenderer()->renderObject(
+				&m_colorModelShaderId,
+				&m_hexVertexArrayObject,
+				0,
+				numFacesCell,
+				color,
+				&modelMatrix3,
+				COpenGLRenderer::EPRIMITIVE_MODE::TRIANGLES,
+				false
+			);
+		}
 	}
 }
 
@@ -366,6 +383,124 @@ void CAppGeometricFigures::createPyramidGeometry()
 	}
 }
 
+void CAppGeometricFigures::createHexGeometry()
+{
+	bool loadedCell = false;
+	numFacesCell = 4;
+	CVector3 p1, p2, p3, p4, p5, p6, v1, v2, v3, v1v2, v1v3, norm;
+	p1 = calcPoint(CVector3(0.0f, 0.0f, 0.0f), 1, 3.0f, false);
+	p2 = calcPoint(CVector3(0.0f, 0.0f, 0.0f), 2, 3.0f, false);
+	p3 = calcPoint(CVector3(0.0f, 0.0f, 0.0f), 3, 3.0f, false);
+	p4 = calcPoint(CVector3(0.0f, 0.0f, 0.0f), 4, 3.0f, false);
+	p5 = calcPoint(CVector3(0.0f, 0.0f, 0.0f), 5, 3.0f, false);
+	p6 = calcPoint(CVector3(0.0f, 0.0f, 0.0f), 6, 3.0f, false);
+
+	float vertexDataCell[18] =
+	{
+		p1.getX(), p1.getY(), p1.getZ(),
+		p2.getX(), p2.getY(), p2.getZ(),
+		p3.getX(), p3.getY(), p3.getZ(),
+		p4.getX(), p4.getY(), p4.getZ(),
+		p5.getX(), p5.getY(), p5.getZ(),
+		p6.getX(), p6.getY(), p6.getZ()
+	};
+
+	float vertexUVCell[12] =
+	{
+		0.5f, 0.5f,
+		0.5f, 0.5f,
+		0.5f, 0.5f,
+		0.5f, 0.5f,
+		0.5f, 0.5f,
+	};
+
+	unsigned short faceIndicesCell[12] =
+	{
+		0, 1, 2,
+		2, 3, 5,
+		3, 4 ,5,
+		5, 0, 2
+	};
+
+	float normalDataCell[12] =
+	{
+		0.0, 0.0, 0.0,
+		0.0, 0.0, 0.0,
+		0.0, 0.0, 0.0,
+		0.0, 0.0, 0.0,
+	};
+
+	unsigned short faceNormalIndicesCell[12] =
+	{
+		0, 0, 0,
+		0, 0, 0,
+		0, 0, 0,
+		0, 0, 0
+	};
+
+	for (int i = 0; i < numFacesCell; i++)
+	{
+		// Vertex 1
+		v1.setValues(
+			vertexDataCell[faceIndicesCell[i * 3]],
+			vertexDataCell[faceIndicesCell[i * 3] + 1],
+			vertexDataCell[faceIndicesCell[i * 3] + 2]);
+
+		// Vertex 2
+		v2.setValues(
+			vertexDataCell[faceIndicesCell[(i * 3) + 1]],
+			vertexDataCell[faceIndicesCell[(i * 3) + 1] + 1],
+			vertexDataCell[faceIndicesCell[(i * 3) + 1] + 2]
+		);
+
+		// Vertex 3
+		v3.setValues(
+			vertexDataCell[faceIndicesCell[(i * 3) + 2]],
+			vertexDataCell[faceIndicesCell[(i * 3) + 2] + 1],
+			vertexDataCell[faceIndicesCell[(i * 3) + 2] + 2]
+		);
+
+		// Vector from v1 to v2
+		v1v2 = v2 - v1;
+
+		// Vector from v1 to v3
+		v1v3 = v3 - v1;
+
+		norm = v1v2.cross(v1v3);
+		norm.normalize();
+
+		normalDataCell[i * 3] = norm.X;
+		normalDataCell[(i * 3) + 1] = norm.Y;
+		normalDataCell[(i * 3) + 2] = norm.Z;
+	}
+	loadedCell = getOpenGLRenderer()->allocateGraphicsMemoryForObject(
+		&m_colorModelShaderId,
+		&m_hexVertexArrayObject,
+		vertexDataCell,
+		6,
+		normalDataCell,
+		4,
+		vertexUVCell,
+		6,
+		faceIndicesCell,
+		4,
+		faceNormalIndicesCell,
+		4,
+		faceIndicesCell,
+		4
+	);
+
+	if (!loadedCell)
+	{
+		numFacesCell = 0;
+		if (m_hexVertexArrayObject > 0)
+		{
+			getOpenGLRenderer()->freeGraphicsMemoryForObject(&m_hexVertexArrayObject);
+			m_hexVertexArrayObject = 0;
+		}
+	}
+}
+
 /* */
 void CAppGeometricFigures::onF2(int mods)
 {
@@ -384,4 +519,15 @@ void CAppGeometricFigures::onF3(int mods)
 		getOpenGLRenderer()->setWireframePolygonMode();
 		m_renderPolygonMode = 0;
 	}
+}
+
+CVector3 CAppGeometricFigures::calcPoint(CVector3 center,int numpoint, float cellsize, bool pointy)
+{
+	CVector3 point;
+	float angle = 60 * numpoint - 30;
+	float angleR = angle * PI_OVER_180;
+	point.Y = 0.0f;
+	point.X = center.X + cellsize * cos(angleR);
+	point.Z = center.Y + cellsize * sin(angleR);
+	return point;
 }

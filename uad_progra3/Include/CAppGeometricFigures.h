@@ -51,6 +51,7 @@ private:
 	// An OpenGL Vertex Array Object is a reference to graphics memory that tells OpenGL where to look for the geometry of the object
 	// It needs to be initialized using the allocateGraphicsMemory() method from the renderer.
 	unsigned int m_pyramidVertexArrayObject;
+	unsigned int m_hexVertexArrayObject;
 	
 	// Identifier for the OpenGL Texture Object 
 	unsigned int m_textureID;
@@ -60,6 +61,7 @@ private:
 
 	int m_numFacesPyramid;
 	int m_renderPolygonMode;
+	int numFacesCell;
 
 protected:
 
@@ -105,9 +107,12 @@ public:
 	void onF2(int mods);
 	void onF3(int mods);
 
+	CVector3 calcPoint(CVector3 center,int numpoint, float cellsize, bool pointy);
+
 private:
 
 	void createPyramidGeometry();
+	void createHexGeometry();
 
 };
 

@@ -106,6 +106,11 @@ bool C3DModel_FBX::parseFBXLine(std::ifstream &file,std::string &line, bool coun
 				getline(file, line);
 				lineNumber++;
 				token = strtok_s((char *)line.c_str(), "a: ,", &nextToken);
+				if (*token == '\t')
+				{
+					token = strtok_s(nextToken, "\t: ", &nextToken2);
+					token = strtok_s(token, ",", &nextToken);
+				}
 				for (int i = 0; i < m_numVertices * 3; i++)
 				{
 					if (token == NULL || *token == '\0' || *token == '\n' || *token == ' ')
@@ -136,6 +141,11 @@ bool C3DModel_FBX::parseFBXLine(std::ifstream &file,std::string &line, bool coun
 				getline(file, line);
 				lineNumber++;
 				token = strtok_s((char *)line.c_str(), "a: ,", &nextToken);
+				if (*token == '\t')
+				{
+					token = strtok_s(nextToken, "\t: ", &nextToken2);
+					token = strtok_s(token, ",", &nextToken);
+				}
 				for (int i = 0; i < (m_numNormals * 3) * 3; i++)
 				{	
 					if (token == NULL || *token == '\0' || *token == '\n' || *token == ' ')
@@ -161,9 +171,15 @@ bool C3DModel_FBX::parseFBXLine(std::ifstream &file,std::string &line, bool coun
 				token = strtok_s(nextToken, " *", &nextToken2);
 				m_numFaces = stoi(token) / 3;
 				m_vertexIndices = new unsigned short[m_numFaces * 3];
+				m_normalIndices = new unsigned short[m_numFaces * 3];
 				getline(file, line);
 				lineNumber++;
 				token = strtok_s((char *)line.c_str(), "a: ,", &nextToken);
+				if (*token == '\t')
+				{
+					token = strtok_s(nextToken, "\t: ", &nextToken2);
+					token = strtok_s(token, ",", &nextToken);
+				}
 				for (int i = 0; i < m_numFaces * 3; i++)
 				{
 					if (token == NULL || *token == '\0' || *token == '\n' || *token == ' ')
@@ -186,6 +202,7 @@ bool C3DModel_FBX::parseFBXLine(std::ifstream &file,std::string &line, bool coun
 						temp -= 1;
 					}
 					m_vertexIndices[i] = temp;
+					m_normalIndices[i] = temp;
 					token = strtok_s(NULL, ",", &nextToken);
 				}
 				parsed = true;
@@ -198,6 +215,11 @@ bool C3DModel_FBX::parseFBXLine(std::ifstream &file,std::string &line, bool coun
 				getline(file, line);
 				lineNumber++;
 				token = strtok_s((char*)line.c_str(), "a: ,", &nextToken);
+				if (*token == '\t')
+				{
+					token = strtok_s(nextToken, "\t: ", &nextToken2);
+					token = strtok_s(token, ",", &nextToken);
+				}
 				for (int i = 0; i < m_numUVCoords * 2; i++)
 				{
 					if (token == NULL || *token == '\0' || *token == '\n' || *token == ' ')
@@ -224,10 +246,14 @@ bool C3DModel_FBX::parseFBXLine(std::ifstream &file,std::string &line, bool coun
 				token = strtok_s(nextToken, " *", &nextToken2);
 				UVIndex = stoi(token) / 3;
 				m_UVindices = new unsigned short[UVIndex * 3];
-				m_normalIndices = new unsigned short[UVIndex * 3];
 				getline(file, line);
 				lineNumber++;
 				token = strtok_s((char *)line.c_str(), "a: ,", &nextToken);
+				if (*token == '\t')
+				{
+					token = strtok_s(nextToken, "\t: ", &nextToken2);
+					token = strtok_s(token, ",", &nextToken);
+				}
 				for (int i = 0; i < UVIndex * 3; i++)
 				{
 					if (token == NULL || *token == '\0' || *token == '\n' || *token == ' ')
@@ -244,7 +270,6 @@ bool C3DModel_FBX::parseFBXLine(std::ifstream &file,std::string &line, bool coun
 						}
 					}
 					m_UVindices[i] = (unsigned short)stoi(token);
-					m_normalIndices[i] = (unsigned short)stoi(token);
 					token = strtok_s(NULL, ",", &nextToken);
 				}
 				parsed = true;
