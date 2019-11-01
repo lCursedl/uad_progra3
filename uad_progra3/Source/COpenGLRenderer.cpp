@@ -924,7 +924,6 @@ bool COpenGLRenderer::generateRenderGeometry(
 		finalUVCoords[currentUV + 1] = UVcoords[(uIndices[2] * 2) + 1]; // UV coord 3 Y
 		currentUV += 2;
 	}
-
 	return true;
 }
 

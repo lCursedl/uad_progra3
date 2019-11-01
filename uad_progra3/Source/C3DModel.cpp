@@ -154,7 +154,7 @@ C3DModel* C3DModel::load(const char * const filename, COpenGLRenderer * const sh
 		}
 		else if (!fileExtension.compare("fbx"))
 		{
-			cout << "Loading FBX model" << endl;
+			cout << "Loading FBX model..." << endl;
 			newModel = new C3DModel_FBX();
 
 			if (!newModel->loadFromFile(filename))
@@ -239,7 +239,6 @@ C3DModel* C3DModel::load(const char * const filename, COpenGLRenderer * const sh
 		cout << "ERROR: Cannot determine the file type" << endl;
 		return nullptr;
 	}
-
 	return newModel;
 }
 

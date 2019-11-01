@@ -1,6 +1,7 @@
 #pragma once
 
 #include "MathHelper.h"
+#include "C3DModel.h"
 
 class CHexCell
 {
@@ -13,6 +14,12 @@ public:
 	void initialize(CVector3 pos, float size, bool p_or_f);
 
 	CVector3 m_center, p1, p2, p3, p4, p5, p6;
+
+	C3DModel * mCellModel;
+
+	float m_modelScale;
+
+	float m_modelrotation[3];
 
 private:
 	//Function to calculate points, true for pointy, false for flat

@@ -55,7 +55,7 @@ CHexGrid::CHexGrid(int cols, int rows, float cellsize, bool pointy)
 			}
 			else
 			{
-				temp.Z = 0.0f + (h / 2.0f);
+				temp.Z = h / 2.0f;
 			}
 			temp.X += w * (3.0f / 4.0f);
 		}
@@ -68,9 +68,9 @@ CHexGrid::~CHexGrid()
 	{
 		for (int i = 0; i < m_cols; i++)
 		{
-			delete cellArray[i];
+			delete [] cellArray[i];
 		}
-		delete cellArray;
+		delete [] cellArray;
 	}
 }
 

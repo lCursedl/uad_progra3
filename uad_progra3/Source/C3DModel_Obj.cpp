@@ -190,6 +190,7 @@ bool C3DModel_Obj::parseObjLine(std::string line, bool countOnly, int lineNumber
 	bool readingUV = false;
 	bool readingFace = false;
 	bool readingTexture = false;
+	bool isQuad = false;
 
 	char *nextToken = NULL;
 	char *token = NULL;
@@ -204,6 +205,7 @@ bool C3DModel_Obj::parseObjLine(std::string line, bool countOnly, int lineNumber
 	int numExpectedTokens = 4;
 
 	std::vector<std::string> tokens;
+	std::vector<std::string> s;
 
 	//std::string materialName;
 	std::string materialFilename;
@@ -260,19 +262,33 @@ bool C3DModel_Obj::parseObjLine(std::string line, bool countOnly, int lineNumber
 
 				if (countOnly)
 				{
-					// Check if this line is a quad or a triangle
-					std::string nextStrToken(nextToken);
-					int num_tokens = 0;
+					//// Check if this line is a quad or a triangle
+					//std::string nextStrToken(nextToken);
+					//int num_tokens = 0;
 
-					token2 = strtok_s(nextToken, delimiterToken, &nextToken2);
-					// If there are any tokens left
-					while (token2 != nullptr)
+					//token2 = strtok_s(nextToken, delimiterToken, &nextToken2);
+					//// If there are any tokens left
+					//while (token2 != nullptr)
+					//{
+					//	num_tokens++;
+					//	token2 = strtok_s(NULL, delimiterToken, &nextToken2);
+					//}
+
+					//m_numFaces++;
+					std::string nextStrToken(nextToken);
+					for (int i = 0, j = 0; i < strlen(nextToken)-1; i++)
 					{
-						num_tokens++;
-						token2 = strtok_s(NULL, delimiterToken, &nextToken2);
+						if (nextToken[i] == ' ')
+						{
+							j++;
+						}
+						if (j > 2)
+						{
+							isQuad = true;
+						}
 					}
 
-					m_numFaces++;
+					m_numFaces += isQuad ? 2 : 1;
 				}
 				else
 				{
@@ -319,7 +335,11 @@ bool C3DModel_Obj::parseObjLine(std::string line, bool countOnly, int lineNumber
 			if (!countOnly)
 			{
 				// Verify we have the expected number of tokens
-				if (currentToken != numExpectedTokens && !readingTexture)
+				if (readingFace && (tokens.size() == 4))
+				{
+					isQuad = true;
+				}
+				if (currentToken != numExpectedTokens && !readingTexture && !isQuad)
 				{
 					cout << "Ignoring line, number of tokens doesn't match the expected." << endl;
 					cout << originalLine << endl;
@@ -386,6 +406,15 @@ bool C3DModel_Obj::parseObjLine(std::string line, bool countOnly, int lineNumber
 						// token[0] = 1/3/4
 						// token[1] = 3/5/2
 						// token[2] = 2/3/1
+
+						// if it is quad
+						// token[3] = 2/5/3
+						if (isQuad)
+						{
+							s = std::vector<std::string>(tokens);
+							tokens.pop_back();
+							s.erase(s.begin() + 1);
+						}
 						for (int i = 0; i < 3 && i < (int)tokens.size(); i++)
 						{
 							currentToken = -1;
@@ -405,11 +434,11 @@ bool C3DModel_Obj::parseObjLine(std::string line, bool countOnly, int lineNumber
 										// Indices in .obj format start at 1, but our arrays start from index 0
 										m_vertexIndices[m_currentFace + i] = (unsigned short)(atoi(token)) - 1;
 										break;
-									case 1:
+									case 5:
 										// Indices in .obj format start at 1, but our arrays start from index 0
 										m_UVindices[m_currentFace + i] = (unsigned short)(atoi(token)) - 1;
 										break;
-									case 2:
+									case 1:
 										// Indices in .obj format start at 1, but our arrays start from index 0
 										m_normalIndices[m_currentFace + i] = (unsigned short)(atoi(token)) - 1;
 										break;
@@ -419,23 +448,20 @@ bool C3DModel_Obj::parseObjLine(std::string line, bool countOnly, int lineNumber
 								token = strtok_s(NULL, delimiterFace, &nextToken);
 
 								// Last token
-								if (token != NULL &&
-									(nextToken == NULL || (nextToken != NULL && *nextToken == '\0'))
-									)
+								if (token != NULL && (nextToken == NULL || (nextToken != NULL && *nextToken == '\0')))
 								{
 									currentToken++;
-
 									switch (currentToken)
 									{
 									case 0:
 										// Indices in .obj format start at 1, but our arrays start from index 0
 										m_vertexIndices[m_currentFace + i] = (unsigned short)(atoi(token)) - 1;
 										break;
-									case 1:
+									case 5:
 										// Indices in .obj format start at 1, but our arrays start from index 0
 										m_UVindices[m_currentFace + i] = (unsigned short)(atoi(token)) - 1;
 										break;
-									case 2:
+									case 1:
 										// Indices in .obj format start at 1, but our arrays start from index 0
 										m_normalIndices[m_currentFace + i] = (unsigned short)(atoi(token)) - 1;
 										break;
@@ -447,10 +473,66 @@ bool C3DModel_Obj::parseObjLine(std::string line, bool countOnly, int lineNumber
 						m_currentFace += 3;
 						token = NULL;
 						nextToken = NULL;
+
+						if (isQuad)
+						{
+							for (int i = 0; i < 3 && i < s.size(); i++)
+							{
+								currentToken = -1;
+
+								token = strtok_s((char *)s[i].c_str(), delimiterFace, &nextToken);
+
+								while (nextToken != NULL && *nextToken != '\0')
+								{
+									currentToken++;
+									if (token != NULL)
+									{
+										switch (currentToken)
+										{
+										case 0:
+											//Indexes
+											m_vertexIndices[m_currentFace + i] = (unsigned short)(atoi(token)) - 1;
+											break;
+										case 5:
+											//UV indexes
+											m_UVindices[m_currentFace + i] = (unsigned short)(atoi(token)) - 1;
+											break;
+										case 1:
+											//Normal indexes
+											m_normalIndices[m_currentFace + i] = (unsigned short)(atoi(token)) - 1;
+											break;
+										}
+									}
+
+									token = strtok_s(NULL, delimiterFace, &nextToken);
+
+									if (token != NULL && (nextToken == NULL) || (nextToken != NULL && *nextToken == '\0'))
+									{
+										currentToken++;
+										switch (currentToken)
+										{
+										case 0:
+											m_vertexIndices[m_currentFace + i] = (unsigned short)(atoi(token)) - 1;
+											break;
+										case 5:
+											m_UVindices[m_currentFace + i] = (unsigned short)(atoi(token)) - 1;
+											break;
+										case 1:
+											m_normalIndices[m_currentFace + i] = (unsigned short)(atoi(token)) - 1;
+											break;
+										}
+									}
+								}
+							}
+							m_currentFace += 3;
+							token = NULL;
+							nextToken = NULL;
+						}
+
 					} // reading face
 					else if (readingTexture)
 					{
-						if (readMtllib(tokens[0]))
+						if (readMtllib("Resources/MEDIA/MODELS/OBJ/" + tokens[0]))
 						{
 							materialFilename = "";
 
