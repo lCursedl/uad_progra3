@@ -13,6 +13,8 @@ public:
 	int m_cols;
 	int m_rows;
 	int faces;
+	int size;
+	bool isPointy;
 	CHexCell ** cellArray;
 
 	float m_vertexData[18];
@@ -20,5 +22,4 @@ public:
 	unsigned short m_faceIndices[12];
 	float m_normalData[12];
 	unsigned short m_faceNormalIndices[12];
-
 };

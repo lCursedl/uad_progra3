@@ -5,6 +5,8 @@ CHexGrid::CHexGrid(int cols, int rows, float cellsize, bool pointy)
 {
 	m_cols = cols;
 	m_rows = rows;
+	size = cellsize;
+	isPointy = pointy;
 	createCellGeometry(CHexCell(CVector3(0.0f, 0.0f, 0.0f),cellsize, pointy));
 	faces = 4;
 	//dinamic array creation
@@ -25,6 +27,8 @@ CHexGrid::CHexGrid(int cols, int rows, float cellsize, bool pointy)
 			for (int j = 0; j < m_cols; j++)
 			{
 				cellArray[i][j].initialize(temp, cellsize, pointy);
+				cellArray[i][j].mSize = cellsize;
+				cellArray[i][j].bPointy = pointy;
 				temp.X += w;
 			}			
 			if (i % 2)
@@ -47,6 +51,8 @@ CHexGrid::CHexGrid(int cols, int rows, float cellsize, bool pointy)
 			for (int i = 0; i < m_rows; i++)
 			{
 				cellArray[i][j].initialize(temp, cellsize, pointy);
+				cellArray[i][j].mSize = cellsize;
+				cellArray[i][j].bPointy = pointy;
 				temp.Z += h;
 			}
 			if (j % 2)

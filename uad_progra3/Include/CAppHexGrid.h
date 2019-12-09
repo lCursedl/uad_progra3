@@ -82,8 +82,6 @@ private:
 
 	CHexGrid * p_Grid;
 
-
-
 	json Data;
 
 	unsigned int DataCols;

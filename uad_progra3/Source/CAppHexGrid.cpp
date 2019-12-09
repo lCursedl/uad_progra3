@@ -225,7 +225,8 @@ void CAppHexGrid::render()
 	CGameMenu *menu = getMenu();
 	if (menu != NULL && menu->isInitialized() && menu->isActive())
 	{
-
+		/*
+		*/
 	}
 	else
 	{
@@ -287,7 +288,7 @@ void CAppHexGrid::render()
 		}
 	}
 }
-//Ya esta feliz profe!. :D atte: ram, gus y robert
+
 void CAppHexGrid::onF2(int mods)
 {
 	if (m_renderPolygonMode == 0)

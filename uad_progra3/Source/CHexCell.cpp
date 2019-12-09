@@ -33,6 +33,20 @@ void CHexCell::initialize(CVector3 pos, float size, bool p_or_f)
 	mCellModel = nullptr;
 }
 
+int CHexCell::getTriangleCount()
+{
+	if (mCellModel != nullptr)
+	{
+		return mCellModel->getNumFaces() + 3;
+	};
+	return 3;
+}
+
+CVector3 CHexCell::getCorner(int num)
+{
+	return calcPoint(m_center, num, mSize, bPointy);
+}
+
 CVector3 CHexCell::calcPoint(CVector3 center, int numpoint, float cellsize, bool pointy)
 {
 	CVector3 point;
@@ -48,6 +62,6 @@ CVector3 CHexCell::calcPoint(CVector3 center, int numpoint, float cellsize, bool
 	}
 	angleR = angle * PI_OVER_180;
 	point.X = center.X + cellsize * cos(angleR);
-	point.Z = center.Y + cellsize * sin(angleR);
+	point.Z = center.Z + cellsize * sin(angleR);
 	return point;
 }

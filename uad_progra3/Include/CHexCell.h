@@ -17,9 +17,17 @@ public:
 
 	C3DModel * mCellModel;
 
+	float mSize;
+
+	bool bPointy;
+
 	float m_modelScale;
 
 	float m_modelrotation[3];
+
+	int getTriangleCount();
+
+	CVector3 getCorner(int num);
 
 private:
 	//Function to calculate points, true for pointy, false for flat
