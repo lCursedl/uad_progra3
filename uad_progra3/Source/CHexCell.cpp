@@ -37,9 +37,9 @@ int CHexCell::getTriangleCount()
 {
 	if (mCellModel != nullptr)
 	{
-		return mCellModel->getNumFaces() + 3;
+		return mCellModel->getNumFaces() + 4;
 	};
-	return 3;
+	return 4;
 }
 
 CVector3 CHexCell::getCorner(int num)

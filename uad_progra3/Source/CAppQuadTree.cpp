@@ -17,6 +17,8 @@ CAppQuadTree::CAppQuadTree(int window_width, int window_height) :
 	AABB_VAO{0},
 	m_renderPolygonMode{0}
 {
+	drawHexGrid = true;
+	drawQuadTree = true;
 	std::cout << "Constructor: CAppQuadTree(int window_width, int window_height)\n";
 }
 
@@ -64,7 +66,7 @@ void CAppQuadTree::initialize()
 		std::cout << "Error al esperar thread.\n";
 	}*/
 
-	mGrid = new CHexGrid(2, 2, 1.0f, true);
+	mGrid = new CHexGrid(2, 2, 1.0f, false);
 	bool loaded = getOpenGLRenderer()->allocateGraphicsMemoryForObject(
 		&m_colorModelShaderID,
 		&m_VAO,
@@ -121,7 +123,7 @@ void CAppQuadTree::initialize()
 
 	mainBB.setCorners(boundaries);
 
-	QT.Subdivide(mGrid->cellArray, mainBB, mGrid->m_rows, mGrid->m_cols, 6);
+	QT.Subdivide(mGrid->cellArray, mainBB, mGrid->m_rows, mGrid->m_cols, 6, 5);
 	if (!QT.loadTreeGeometry(getOpenGLRenderer(), m_colorModelShaderID))
 	{
 		std::cout << "Error loading QuadTree's AABB to memory.\n";
@@ -191,59 +193,65 @@ void CAppQuadTree::render()
 		float modelcolor[3] = { 0.0f, 1.0f, 0.0f };
 		double totalDegreesRotatedRadians = m_objectRotation * PI_OVER_180;
 		MathHelper::Matrix4 HexMatrix;
-		if (m_VAO > 0 && mGrid->faces > 0)
+		if (drawHexGrid)
 		{
-			for (int i = 0; i < mGrid->m_rows; i++)
+			if (m_VAO > 0 && mGrid->faces > 0)
 			{
-				for (int j = 0; j < mGrid->m_cols; j++)
+				for (int i = 0; i < mGrid->m_rows; i++)
 				{
-					HexMatrix = MathHelper::SimpleModelMatrixRotationTranslation(0.0f, mGrid->cellArray[i][j].m_center);
-					getOpenGLRenderer()->renderObject(
-						&m_colorModelShaderID,
-						&m_VAO,
-						0,
-						mGrid->faces,
-						color,
-						&HexMatrix,
-						COpenGLRenderer::EPRIMITIVE_MODE::TRIANGLES,
-						false);
-					if (mGrid->cellArray[i][j].mCellModel != nullptr)
+					for (int j = 0; j < mGrid->m_cols; j++)
 					{
-
-						MathHelper::Matrix4 sm = MathHelper::ScaleMatrix(mGrid->cellArray[i][j].m_modelScale, mGrid->cellArray[i][j].m_modelScale, mGrid->cellArray[i][j].m_modelScale);
-
-						MathHelper::Matrix4 tm = MathHelper::TranslationMatrix(mGrid->cellArray[i][j].m_center.X, mGrid->cellArray[i][j].m_center.Y, mGrid->cellArray[i][j].m_center.Z);
-
-						MathHelper::Matrix4 ry;
-
-						if (mGrid->cellArray[i][j].m_modelrotation[1] != 0.0f)
-						{
-							ry = MathHelper::RotAroundY((float)mGrid->cellArray[i][j].m_modelrotation[1] * PI_OVER_180);
-						}
-						else
-						{
-							ry = MathHelper::RotAroundY(0.0f * PI_OVER_180);
-						}
-
-						MathHelper::Matrix4 RandS = MathHelper::Multiply(ry, sm);
-
-						MathHelper::Matrix4 ModelMatrix = MathHelper::Multiply(RandS, tm);
-
-						unsigned int tempVAO = mGrid->cellArray[i][j].mCellModel->getGraphicsMemoryObjectId();
+						HexMatrix = MathHelper::SimpleModelMatrixRotationTranslation(0.0f, mGrid->cellArray[i][j].m_center);
 						getOpenGLRenderer()->renderObject(
 							&m_colorModelShaderID,
-							&tempVAO,
+							&m_VAO,
 							0,
-							mGrid->cellArray[i][j].mCellModel->getNumFaces(),
-							modelcolor,
-							&ModelMatrix,
+							mGrid->faces,
+							color,
+							&HexMatrix,
 							COpenGLRenderer::EPRIMITIVE_MODE::TRIANGLES,
 							false);
+						if (mGrid->cellArray[i][j].mCellModel != nullptr)
+						{
+
+							MathHelper::Matrix4 sm = MathHelper::ScaleMatrix(mGrid->cellArray[i][j].m_modelScale, mGrid->cellArray[i][j].m_modelScale, mGrid->cellArray[i][j].m_modelScale);
+
+							MathHelper::Matrix4 tm = MathHelper::TranslationMatrix(mGrid->cellArray[i][j].m_center.X, mGrid->cellArray[i][j].m_center.Y, mGrid->cellArray[i][j].m_center.Z);
+
+							MathHelper::Matrix4 ry;
+
+							if (mGrid->cellArray[i][j].m_modelrotation[1] != 0.0f)
+							{
+								ry = MathHelper::RotAroundY((float)mGrid->cellArray[i][j].m_modelrotation[1] * PI_OVER_180);
+							}
+							else
+							{
+								ry = MathHelper::RotAroundY(0.0f * PI_OVER_180);
+							}
+
+							MathHelper::Matrix4 RandS = MathHelper::Multiply(ry, sm);
+
+							MathHelper::Matrix4 ModelMatrix = MathHelper::Multiply(RandS, tm);
+
+							unsigned int tempVAO = mGrid->cellArray[i][j].mCellModel->getGraphicsMemoryObjectId();
+							getOpenGLRenderer()->renderObject(
+								&m_colorModelShaderID,
+								&tempVAO,
+								0,
+								mGrid->cellArray[i][j].mCellModel->getNumFaces(),
+								modelcolor,
+								&ModelMatrix,
+								COpenGLRenderer::EPRIMITIVE_MODE::TRIANGLES,
+								false);
+						}
 					}
 				}
 			}
 		}
-		QT.m_root->render(nullptr, getOpenGLRenderer(), m_colorModelShaderID);
+		if (drawQuadTree)
+		{
+			QT.m_root->render(nullptr, getOpenGLRenderer(), m_colorModelShaderID);
+		}		
 	}
 }
 
@@ -313,6 +321,30 @@ void CAppQuadTree::onF3(int mods)
 	else
 	{
 		moveCamera(1.0f);
+	}
+}
+
+void CAppQuadTree::onF4(int mods)
+{
+	if (mods & KEY_MOD_SHIFT)
+	{
+		drawHexGrid = true;
+	}
+	else
+	{
+		drawHexGrid = false;
+	}
+}
+
+void CAppQuadTree::onF5(int mods)
+{
+	if (mods & KEY_MOD_SHIFT)
+	{
+		drawQuadTree = true;
+	}
+	else
+	{
+		drawQuadTree = false;
 	}
 }
 

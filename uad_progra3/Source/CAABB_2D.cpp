@@ -32,6 +32,9 @@ void AABB_2D::setCorners(CVector3 * data)
 	{
 		m_points[i] = data[i];
 	}
+
+	//OpenGL stuff
+
 	//Vertex Data
 	Vertices[0] = m_points[0].getX();	Vertices[1] = m_points[0].getY();	Vertices[2] = m_points[0].getZ();
 	Vertices[3] = m_points[1].getX();	Vertices[4] = m_points[1].getY();	Vertices[5] = m_points[1].getZ();

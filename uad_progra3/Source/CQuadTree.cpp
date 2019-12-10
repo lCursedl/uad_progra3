@@ -7,14 +7,15 @@ CQuadTree::CQuadTree()
 
 CQuadTree::~CQuadTree(){}
 
-void CQuadTree::Subdivide(CHexCell** container, AABB_2D BoundingBox, int rows, int columns, int limit)
+void CQuadTree::Subdivide(CHexCell** container, AABB_2D BoundingBox, int rows, int columns, int trilimit, int sublimit)
 {
 	if (m_root == nullptr)
 	{
 		m_root = new CQuadTreeNode();
-		m_limitSubdiv = limit;
+		m_limitTris = trilimit;
+		m_limitSubdiv = sublimit;
 		m_root->setLimits(BoundingBox);
-		m_root->firstsubdivide(m_limitSubdiv, BoundingBox, container, rows, columns);
+		m_root->firstsubdivide(m_limitTris, BoundingBox, container, rows, columns, 0, m_limitSubdiv);
 	}
 }
 

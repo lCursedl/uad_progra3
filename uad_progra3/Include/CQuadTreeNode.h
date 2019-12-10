@@ -16,8 +16,8 @@ public:
 	CQuadTreeNode();
 	~CQuadTreeNode();
 
-	void subdivide(int limit, AABB_2D parentBounds, std::vector<CHexCell*> cells);
-	void firstsubdivide(int limit, AABB_2D parentBounds, CHexCell** cells, int r, int c);
+	void subdivide(int limit, AABB_2D parentBounds, std::vector<CHexCell*> cells, int currlimit, int maxlimit);
+	void firstsubdivide(int limit, AABB_2D parentBounds, CHexCell** cells, int r, int c, int currlimit, int maxlimit);
 	void render(CCamera *cam, COpenGLRenderer * Renderer, unsigned int & ColorModelShaderID);
 
 	void setBounds(AABB_2D data);

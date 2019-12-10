@@ -55,11 +55,18 @@ private:
 
 	void onF3(int mods);
 
+	void onF4(int mods);
+
+	void onF5(int mods);
+
 	void moveCamera(float direction);
 
 	unsigned int m_VAO;
 	unsigned int AABB_VAO;
 	unsigned int m_colorModelShaderID;
 	unsigned int m_textureModelShaderID;
+
+	bool drawHexGrid;
+	bool drawQuadTree;
 };
 #endif // !CAPPQUADTREE_H
